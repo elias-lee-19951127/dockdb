@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1
+
+- Removed the repository link from the Marketplace listing (the source repository is private).
+
 ## 0.1.0 — first preview
 
 - Auto-discovery of databases in Docker containers (credentials from the container env), on local ports (protocol probing) and SQLite files in the workspace. Paste `docker inspect`, compose, `docker run`, `.env` or a URL for anything else.
