@@ -1,0 +1,408 @@
+{
+  "name": "dockdb",
+  "displayName": "DockDB — Database Explorer for Docker",
+  "description": "Auto-detects databases running in Docker or on local ports and lets you browse and edit tables like DataGrip. Almost zero configuration.",
+  "version": "0.1.0",
+  "publisher": "phule",
+  "license": "MIT",
+  "icon": "media/icon.png",
+  "preview": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/elias-lee-19951127/dockdb.git"
+  },
+  "galleryBanner": {
+    "color": "#0b3d91",
+    "theme": "dark"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
+  "keywords": [
+    "docker",
+    "database",
+    "postgres",
+    "postgresql",
+    "mysql",
+    "mariadb",
+    "sqlite",
+    "mongodb",
+    "sql",
+    "datagrip",
+    "table editor",
+    "db client"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onLanguage:sql",
+    "onLanguage:dockdb-mongo"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "dockdb",
+          "title": "DockDB",
+          "icon": "media/dockdb.svg"
+        }
+      ],
+      "panel": [
+        {
+          "id": "dockdb-results",
+          "title": "DockDB",
+          "icon": "media/dockdb.svg"
+        }
+      ]
+    },
+    "views": {
+      "dockdb": [
+        {
+          "id": "dockdb.explorer",
+          "name": "Databases"
+        }
+      ],
+      "dockdb-results": [
+        {
+          "type": "webview",
+          "id": "dockdb.results",
+          "name": "Results"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "dockdb.explorer",
+        "contents": "No running databases found yet.\n[$(search) Rescan Docker & ports](command:dockdb.discover)\n[$(clippy) Paste docker inspect / URL](command:dockdb.import)\n[$(add) Add connection manually](command:dockdb.addConnection)\nDockDB reads `docker ps`, listening ports (Postgres, MySQL, MongoDB) and SQLite files in your workspace."
+      }
+    ],
+    "commands": [
+      {
+        "command": "dockdb.discover",
+        "title": "Rescan Docker & Ports",
+        "category": "DockDB",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "dockdb.import",
+        "title": "Paste docker inspect / compose / URL…",
+        "category": "DockDB",
+        "icon": "$(clippy)"
+      },
+      {
+        "command": "dockdb.addConnection",
+        "title": "Add Connection…",
+        "category": "DockDB",
+        "icon": "$(add)"
+      },
+      {
+        "command": "dockdb.openTable",
+        "title": "Open Table",
+        "category": "DockDB",
+        "icon": "$(table)"
+      },
+      {
+        "command": "dockdb.newQuery",
+        "title": "New Query",
+        "category": "DockDB",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "dockdb.runQuery",
+        "title": "Run Statement",
+        "category": "DockDB",
+        "icon": "$(play)"
+      },
+      {
+        "command": "dockdb.runStatement",
+        "title": "Run This Statement",
+        "category": "DockDB"
+      },
+      {
+        "command": "dockdb.pickConnection",
+        "title": "Pick Connection for This File",
+        "category": "DockDB"
+      },
+      {
+        "command": "dockdb.saveConnection",
+        "title": "Save Connection",
+        "category": "DockDB",
+        "icon": "$(pin)"
+      },
+      {
+        "command": "dockdb.editCredentials",
+        "title": "Edit Credentials",
+        "category": "DockDB"
+      },
+      {
+        "command": "dockdb.renameConnection",
+        "title": "Rename",
+        "category": "DockDB"
+      },
+      {
+        "command": "dockdb.removeConnection",
+        "title": "Remove Connection",
+        "category": "DockDB"
+      },
+      {
+        "command": "dockdb.disconnect",
+        "title": "Disconnect",
+        "category": "DockDB",
+        "icon": "$(debug-disconnect)"
+      },
+      {
+        "command": "dockdb.copyUrl",
+        "title": "Copy Connection URL",
+        "category": "DockDB"
+      },
+      {
+        "command": "dockdb.copyName",
+        "title": "Copy Table Name",
+        "category": "DockDB"
+      },
+      {
+        "command": "dockdb.refreshNode",
+        "title": "Refresh",
+        "category": "DockDB",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "dockdb.refreshTree",
+        "title": "Refresh Tree",
+        "category": "DockDB"
+      },
+      {
+        "command": "dockdb.setSafety",
+        "title": "Set Safety Mode…",
+        "category": "DockDB",
+        "icon": "$(shield)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "dockdb.discover",
+          "when": "view == dockdb.explorer",
+          "group": "navigation@1"
+        },
+        {
+          "command": "dockdb.import",
+          "when": "view == dockdb.explorer",
+          "group": "navigation@2"
+        },
+        {
+          "command": "dockdb.addConnection",
+          "when": "view == dockdb.explorer",
+          "group": "navigation@3"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "dockdb.newQuery",
+          "when": "view == dockdb.explorer && viewItem =~ /^(connection|detected|database|schema|table)/",
+          "group": "inline@1"
+        },
+        {
+          "command": "dockdb.saveConnection",
+          "when": "view == dockdb.explorer && viewItem == detected",
+          "group": "inline@2"
+        },
+        {
+          "command": "dockdb.newQuery",
+          "when": "view == dockdb.explorer && viewItem =~ /^(connection|detected|database|schema|table)/",
+          "group": "1_query@1"
+        },
+        {
+          "command": "dockdb.openTable",
+          "when": "view == dockdb.explorer && viewItem == table",
+          "group": "1_query@2"
+        },
+        {
+          "command": "dockdb.copyName",
+          "when": "view == dockdb.explorer && viewItem == table",
+          "group": "2_copy@1"
+        },
+        {
+          "command": "dockdb.refreshNode",
+          "when": "view == dockdb.explorer && viewItem =~ /^(connection|detected|database|schema)/",
+          "group": "3_manage@0"
+        },
+        {
+          "command": "dockdb.saveConnection",
+          "when": "view == dockdb.explorer && viewItem == detected",
+          "group": "3_manage@1"
+        },
+        {
+          "command": "dockdb.copyUrl",
+          "when": "view == dockdb.explorer && viewItem =~ /^(connection|detected)$/",
+          "group": "2_copy@2"
+        },
+        {
+          "command": "dockdb.editCredentials",
+          "when": "view == dockdb.explorer && viewItem =~ /^(connection|detected)$/",
+          "group": "3_manage@2"
+        },
+        {
+          "command": "dockdb.renameConnection",
+          "when": "view == dockdb.explorer && viewItem == connection",
+          "group": "3_manage@3"
+        },
+        {
+          "command": "dockdb.disconnect",
+          "when": "view == dockdb.explorer && viewItem =~ /^(connection|detected)$/",
+          "group": "3_manage@4"
+        },
+        {
+          "command": "dockdb.removeConnection",
+          "when": "view == dockdb.explorer && viewItem == connection",
+          "group": "4_danger@1"
+        },
+        {
+          "command": "dockdb.setSafety",
+          "when": "view == dockdb.explorer && viewItem =~ /^(connection|detected)$/",
+          "group": "3_manage@1"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "dockdb.runQuery",
+          "when": "(editorLangId == sql || editorLangId == dockdb-mongo)",
+          "group": "navigation@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "dockdb.openTable",
+          "when": "false"
+        },
+        {
+          "command": "dockdb.runStatement",
+          "when": "false"
+        },
+        {
+          "command": "dockdb.copyName",
+          "when": "false"
+        },
+        {
+          "command": "dockdb.refreshNode",
+          "when": "false"
+        },
+        {
+          "command": "dockdb.renameConnection",
+          "when": "false"
+        },
+        {
+          "command": "dockdb.saveConnection",
+          "when": "false"
+        },
+        {
+          "command": "dockdb.runQuery",
+          "when": "(editorLangId == sql || editorLangId == dockdb-mongo)"
+        },
+        {
+          "command": "dockdb.refreshTree",
+          "when": "false"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "dockdb.runQuery",
+        "key": "ctrl+enter",
+        "mac": "cmd+enter",
+        "when": "editorTextFocus && (editorLangId == sql || editorLangId == dockdb-mongo)"
+      }
+    ],
+    "configuration": {
+      "title": "DockDB",
+      "properties": {
+        "dockdb.autoDiscover": {
+          "type": "boolean",
+          "default": true,
+          "description": "Scan Docker, listening ports and SQLite files when the sidebar opens."
+        },
+        "dockdb.dockerPath": {
+          "type": "string",
+          "default": "docker",
+          "description": "Path to the Docker CLI."
+        },
+        "dockdb.extraPorts": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "default": [],
+          "description": "Extra ports to probe (besides listening and well-known ports)."
+        },
+        "dockdb.pageSize": {
+          "type": "number",
+          "default": 200,
+          "minimum": 10,
+          "maximum": 5000,
+          "description": "Rows per page when browsing a table."
+        },
+        "dockdb.maxQueryRows": {
+          "type": "number",
+          "default": 1000,
+          "description": "Maximum rows shown for a query result."
+        },
+        "dockdb.showSystemDatabases": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show system databases/schemas (mysql, information_schema, pg_catalog…)."
+        }
+      }
+    },
+    "languages": [
+      {
+        "id": "dockdb-mongo",
+        "aliases": [
+          "MongoDB Shell (DockDB)"
+        ],
+        "extensions": [
+          ".mongo.js"
+        ],
+        "configuration": "./syntaxes/mongo.language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "dockdb-mongo",
+        "scopeName": "source.dockdb-mongo",
+        "path": "./syntaxes/mongo.tmLanguage.json"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "package": "vsce package --no-dependencies",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "vscode:prepublish": "npm run clean && node esbuild.mjs --production",
+    "test:e2e": "npm run build && node test/e2e/run.mjs",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "publish:vsce": "vsce publish --no-dependencies",
+    "publish:ovsx": "ovsx publish --no-dependencies"
+  },
+  "dependencies": {
+    "mongodb": "^6.21.0",
+    "mysql2": "^3.24.4",
+    "pg": "^8.23.0",
+    "sql.js": "^1.14.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/pg": "^8.11.0",
+    "@types/sql.js": "^1.4.9",
+    "@types/vscode": "^1.90.0",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.2.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^5.6.0",
+    "vitest": "^3.2.0"
+  }
+}
