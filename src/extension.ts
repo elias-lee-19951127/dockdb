@@ -187,7 +187,9 @@ export function activate(ctx: vscode.ExtensionContext) {
           ? `sqlite://${c.file}`
           : c.kind === 'mongodb'
             ? `mongodb${c.srv ? '+srv' : ''}://${user}${c.srv ? c.host : `${c.host}:${c.port}`}/${c.database ?? ''}${c.user ? `?authSource=${c.authSource ?? 'admin'}` : ''}`
-            : `${c.kind === 'postgres' ? 'postgresql' : 'mysql'}://${user}${c.host}:${c.port}/${c.database ?? ''}`;
+            : c.kind === 'mssql'
+              ? `sqlserver://${user}${c.host}:${c.port}/${c.database ?? ''}`
+              : `${c.kind === 'postgres' ? 'postgresql' : 'mysql'}://${user}${c.host}:${c.port}/${c.database ?? ''}`;
       await vscode.env.clipboard.writeText(url);
       void vscode.window.setStatusBarMessage('Copied URL (without password)', 2500);
     }),
@@ -217,6 +219,7 @@ async function addConnection(ctx: vscode.ExtensionContext, store: ConnectionStor
       { label: '$(clippy) Paste a URL / docker inspect / compose…', id: 'paste' },
       { label: '$(database) PostgreSQL', id: 'postgres' },
       { label: '$(database) MySQL / MariaDB', id: 'mysql' },
+      { label: '$(database) Microsoft SQL Server', id: 'mssql' },
       { label: '$(database) MongoDB', id: 'mongodb' },
       { label: '$(file) File SQLite…', id: 'sqlite' },
     ],
@@ -234,7 +237,7 @@ async function addConnection(ctx: vscode.ExtensionContext, store: ConnectionStor
     return onImported([db]);
   }
 
-  const kind = choice.id as 'postgres' | 'mysql' | 'mongodb';
+  const kind = choice.id as 'postgres' | 'mysql' | 'mssql' | 'mongodb';
   const address = await vscode.window.showInputBox({
     title: `${choice.label.replace(/\$\(\w+\) /, '')} — address`,
     prompt: 'host:port',

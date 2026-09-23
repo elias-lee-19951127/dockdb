@@ -68,7 +68,7 @@ export async function askCredentials(config: ConnectionConfig, reason?: string):
   const user = await vscode.window.showInputBox({
     title: `Sign in to ${target}`,
     prompt: `${reason ? `${reason} — enter the user again` : 'User'}${mongo ? ' (leave empty if MongoDB has no authentication)' : ''}`,
-    value: config.user ?? (config.kind === 'postgres' ? 'postgres' : mongo ? '' : 'root'),
+    value: config.user ?? (config.kind === 'postgres' ? 'postgres' : config.kind === 'mssql' ? 'sa' : mongo ? '' : 'root'),
     ignoreFocusOut: true,
   });
   if (user === undefined) return undefined;
@@ -84,11 +84,15 @@ export async function askCredentials(config: ConnectionConfig, reason?: string):
 }
 
 function friendly(e: unknown, config: ConnectionConfig): Error {
-  const err = e as { code?: string; message?: string };
+  const err = e as { code?: string; number?: number; message?: string };
   const where = config.kind === 'sqlite' ? config.file : `${config.host}:${config.port}`;
-  if (err.code === 'ECONNREFUSED') return new Error(`Cannot connect to ${where} — the database is not running or the port is not published.`);
-  if (err.code === 'ETIMEDOUT' || /timeout/i.test(err.message ?? '')) return new Error(`Timed out connecting to ${where}.`);
+  if (err.code === 'ECONNREFUSED' || (err.code === 'ESOCKET' && /ECONNREFUSED/.test(err.message ?? ''))) {
+    return new Error(`Cannot connect to ${where} — the database is not running or the port is not published.`);
+  }
+  if (err.code === 'ETIMEDOUT' || err.code === 'ETIMEOUT' || /timeout/i.test(err.message ?? '')) return new Error(`Timed out connecting to ${where}.`);
   if (err.code === 'ENOENT') return new Error(`File not found: ${where}.`);
-  if (err.code === '3D000' || err.code === 'ER_BAD_DB_ERROR') return new Error(`${err.message}. Change the default database via "Edit credentials".`);
+  if (err.code === '3D000' || err.code === 'ER_BAD_DB_ERROR' || err.number === 4060 || /Cannot open database ".*" requested by the login/i.test(err.message ?? '')) {
+    return new Error(`${err.message}. Change the default database via "Edit credentials".`);
+  }
   return e instanceof Error ? e : new Error(String(e));
 }

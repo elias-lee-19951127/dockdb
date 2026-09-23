@@ -8,7 +8,7 @@ export interface ProbeResult {
   version?: string;
 }
 
-const COMMON_PORTS = [5432, 5433, 5434, 5435, 3306, 3307, 3308, 3309, 33060, 54320, 54321, 54322, 15432, 13306, 27017, 27018, 27019, 27020];
+const COMMON_PORTS = [5432, 5433, 5434, 5435, 3306, 3307, 3308, 3309, 33060, 54320, 54321, 54322, 15432, 13306, 27017, 27018, 27019, 27020, 1433, 1434];
 
 /** TCP ports listening on this machine (lsof on macOS/Linux, netstat on Windows). */
 export function listListeningPorts(): Promise<number[]> {
@@ -126,7 +126,59 @@ export function probeMongo(port: number, host = '127.0.0.1', timeoutMs = 800): P
   });
 }
 
-/** Probes listening + well-known ports and returns those speaking Postgres/MySQL/MongoDB. */
+/**
+ * Minimal TDS PRELOGIN request (MS-TDS). Any SQL Server answers with a PRELOGIN response
+ * packet (header type 0x04) — that alone is enough to identify the protocol.
+ */
+function tdsPreLogin(): Buffer {
+  const options: [number, Buffer][] = [
+    [0x00, Buffer.from([0, 0, 0, 0, 0, 0])], // VERSION
+    [0x01, Buffer.from([0x02])], // ENCRYPTION: NOT_SUPPORTED
+    [0x02, Buffer.from([0x00])], // INSTOPT: no instance name
+    [0x03, Buffer.from([0, 0, 0, 0])], // THREADID
+    [0x04, Buffer.from([0x00])], // MARS: off
+  ];
+  const tokenBytes = options.length * 5 + 1; // + 0xFF terminator
+  const tokens: Buffer[] = [];
+  const data: Buffer[] = [];
+  let offset = tokenBytes;
+  for (const [token, value] of options) {
+    const head = Buffer.alloc(5);
+    head.writeUInt8(token, 0);
+    head.writeUInt16BE(offset, 1);
+    head.writeUInt16BE(value.length, 3);
+    tokens.push(head);
+    data.push(value);
+    offset += value.length;
+  }
+  const body = Buffer.concat([...tokens, Buffer.from([0xff]), ...data]);
+  const header = Buffer.alloc(8);
+  header.writeUInt8(0x12, 0); // Type: PRELOGIN
+  header.writeUInt8(0x01, 1); // Status: EOM
+  header.writeUInt16BE(8 + body.length, 2); // Length
+  return Buffer.concat([header, body]);
+}
+
+export function probeMssql(port: number, host = '127.0.0.1', timeoutMs = 800): Promise<ProbeResult | undefined> {
+  return new Promise((resolve) => {
+    const socket = net.createConnection({ host, port });
+    let done = false;
+    const finish = (r?: ProbeResult) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      socket.destroy();
+      resolve(r);
+    };
+    const timer = setTimeout(() => finish(), timeoutMs);
+    socket.on('connect', () => socket.write(tdsPreLogin()));
+    socket.on('data', (buf) => finish(buf.length >= 8 && buf[0] === 0x04 ? { port, kind: 'mssql' } : undefined));
+    socket.on('error', () => finish());
+    socket.on('close', () => finish());
+  });
+}
+
+/** Probes listening + well-known ports and returns those speaking Postgres/MySQL/MongoDB/SQL Server. */
 export async function scanPorts(extraPorts: number[] = []): Promise<ProbeResult[]> {
   const listening = await listListeningPorts();
   const candidates = [...new Set([...listening, ...COMMON_PORTS, ...extraPorts])]
@@ -136,8 +188,8 @@ export async function scanPorts(extraPorts: number[] = []): Promise<ProbeResult[
   const queue = [...candidates];
   const workers = Array.from({ length: 24 }, async () => {
     for (let port = queue.shift(); port !== undefined; port = queue.shift()) {
-      // Postgres/MySQL first; otherwise try the MongoDB protocol on a fresh connection.
-      const r = (await probePort(port)) ?? (await probeMongo(port));
+      // Postgres/MySQL first; otherwise try MongoDB, then SQL Server, on a fresh connection.
+      const r = (await probePort(port)) ?? (await probeMongo(port)) ?? (await probeMssql(port));
       if (r) results.push(r);
     }
   });

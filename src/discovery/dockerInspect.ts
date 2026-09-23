@@ -17,6 +17,7 @@ const IMAGE_PATTERNS: [RegExp, DbKind][] = [
   [/postgres|postgis|timescale|pgvector|supabase\/postgres|paradedb|pgrouting/i, 'postgres'],
   [/mysql|mariadb|percona(?!.*mongo)/i, 'mysql'],
   [/mongo/i, 'mongodb'],
+  [/mssql|azure-sql-edge/i, 'mssql'],
 ];
 
 /** Images that are DB tools/UIs, not databases. */
@@ -33,10 +34,12 @@ export function detectKind(image: string, env: Record<string, string>, container
   if (containerPorts.includes(5432)) return 'postgres';
   if (containerPorts.includes(3306)) return 'mysql';
   if (containerPorts.includes(27017)) return 'mongodb';
+  if (containerPorts.includes(1433)) return 'mssql';
   if (!envFallback) return undefined;
   if (Object.keys(env).some((k) => k.startsWith('MONGO_INITDB_') || k.startsWith('MONGODB_'))) return 'mongodb';
   if (Object.keys(env).some((k) => k.startsWith('POSTGRES'))) return 'postgres';
   if (Object.keys(env).some((k) => k.startsWith('MYSQL_') || k.startsWith('MARIADB_'))) return 'mysql';
+  if (Object.keys(env).some((k) => k.startsWith('MSSQL_') || k === 'SA_PASSWORD')) return 'mssql';
   return undefined;
 }
 
@@ -78,6 +81,9 @@ export function credentialsFromEnv(kind: DbKind, env: Record<string, string>): {
     if (env.MONGODB_USERNAME) return { user: env.MONGODB_USERNAME, password: env.MONGODB_PASSWORD, database };
     // No user declared → Mongo runs without authentication.
     return { database };
+  }
+  if (kind === 'mssql') {
+    return { user: 'sa', password: env.MSSQL_SA_PASSWORD ?? env.SA_PASSWORD };
   }
   return {};
 }

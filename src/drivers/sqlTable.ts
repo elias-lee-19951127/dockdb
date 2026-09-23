@@ -1,4 +1,5 @@
 import { CellValue, ColumnInfo, GridColumn, Sort, TableRef } from '../model';
+import { sqlFilterExample } from '../sql/filterExample';
 import { buildStatements, chooseKeySpec, Edit, KeySpec, keySelectList, renderForPreview } from '../sql/mutations';
 import { SqlDriver, TableAccess, TableMeta, TablePage } from './driver';
 
@@ -21,6 +22,7 @@ export class SqlTableAccess implements TableAccess {
       const fk = fks.find((f) => f.column === c.name);
       return fk ? { ...c, references: { table: fk.ref, column: fk.refColumn } } : c;
     });
+    const quote = this.driver.dialect.kind === 'mysql' ? '`' : this.driver.dialect.kind === 'mssql' ? '[' : '"';
     return {
       columns: grid,
       editable: !!this.keySpec,
@@ -29,8 +31,8 @@ export class SqlTableAccess implements TableAccess {
       filter: {
         lang: 'sql',
         label: 'WHERE',
-        placeholder: "e.g. id > 10 AND email LIKE '%@gmail.com'  (Enter to apply)",
-        identQuote: this.driver.dialect.kind === 'mysql' ? '`' : '"',
+        placeholder: sqlFilterExample(this.columns, quote),
+        identQuote: quote,
       },
     };
   }
@@ -45,7 +47,7 @@ export class SqlTableAccess implements TableAccess {
     if (term) {
       const like = `%${term.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
       const cols = this.columns.slice(0, MAX_SEARCH_COLUMNS).map((c) => d.quoteIdent(c.name));
-      const text = d.kind === 'mysql' ? 'CHAR' : 'TEXT';
+      const text = d.kind === 'mysql' ? 'CHAR' : d.kind === 'mssql' ? 'NVARCHAR(MAX)' : 'TEXT';
       const op = d.kind === 'postgres' ? 'ILIKE' : 'LIKE';
       const esc = d.kind === 'mysql' ? '' : " ESCAPE '\\'";
       const ors = cols.map((c) => {
@@ -64,7 +66,7 @@ export class SqlTableAccess implements TableAccess {
     const where = this.where(filter, search);
     let sql = `SELECT ${[...keyCols, ...cols].join(', ')} FROM ${d.qualified(this.table)}${where.sql}`;
     if (sort) sql += ` ORDER BY ${d.quoteIdent(sort.column)} ${sort.dir.toUpperCase()}`;
-    return { sql: `${sql} LIMIT ${limit} OFFSET ${offset}`, params: where.params };
+    return { sql: d.paginate(sql, !!sort, limit, offset), params: where.params };
   }
 
   async page(filter: string, search: string, sort: Sort | null, limit: number, offset: number): Promise<TablePage> {

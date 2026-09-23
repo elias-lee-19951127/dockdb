@@ -3,6 +3,7 @@ import { CellValue, ConnectionConfig, QueryResult, Sort, TableRef } from '../mod
 import { parseDocument, ShellSyntaxError } from '../mongo/literal';
 import { runShell } from '../mongo/shell';
 import { BsonTypeName, bsonType, ColumnModel, formatCell, parseCell, toShell } from '../mongo/values';
+import { mongoFilterExample } from '../sql/filterExample';
 import type { Edit } from '../sql/mutations';
 import { AuthError, Driver, DriverTableInfo, RowMismatchError, TableAccess, TableMeta, TablePage } from './driver';
 
@@ -159,12 +160,13 @@ class MongoTableAccess implements TableAccess {
     const sample = await this.coll((c) => c.find({}, { limit: 300, promoteValues: false }).toArray());
     this.model.absorb(sample);
     const view = this.table.type === 'view';
+    const columns = this.model.gridColumns();
     return {
-      columns: this.model.gridColumns(),
+      columns,
       editable: !view,
       readOnlyReason: view ? 'Views cannot be edited directly' : undefined,
       sort: view ? null : { column: '_id', dir: 'asc' },
-      filter: { lang: 'mongo', label: 'FILTER', placeholder: 'e.g. { age: { $gt: 18 }, name: /an/i }  (Enter to apply)' },
+      filter: { lang: 'mongo', label: 'FILTER', placeholder: mongoFilterExample(columns) },
     };
   }
 

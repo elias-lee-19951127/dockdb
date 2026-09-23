@@ -49,8 +49,12 @@ function whereByKey(dialect: Dialect, spec: KeySpec, key: CellValue[], params: P
   return spec.columns.map((c, i) => dialect.nullSafeEquals(dialect.quoteIdent(c), params.add(key[i]))).join(' AND ');
 }
 
-function limitOne(dialect: Dialect, spec: KeySpec): string {
-  return spec.kind === 'allColumns' && dialect.kind === 'mysql' ? ' LIMIT 1' : '';
+/** A table with no primary key is matched by every column, so an UPDATE/DELETE must be capped at one row. */
+function limitOneParts(dialect: Dialect, spec: KeySpec): { prefix: string; suffix: string } {
+  if (spec.kind !== 'allColumns') return { prefix: '', suffix: '' };
+  if (dialect.kind === 'mysql') return { prefix: '', suffix: ' LIMIT 1' };
+  if (dialect.kind === 'mssql') return { prefix: 'TOP (1) ', suffix: '' }; // TOP goes right after UPDATE / before FROM in DELETE
+  return { prefix: '', suffix: '' };
 }
 
 export function buildStatements(dialect: Dialect, table: TableRef, spec: KeySpec, edits: Edit[]): Statement[] {
@@ -69,13 +73,14 @@ export function buildStatements(dialect: Dialect, table: TableRef, spec: KeySpec
         params: params.values,
       };
     }
+    const { prefix, suffix } = limitOneParts(dialect, spec);
     if (edit.type === 'update') {
       const sets = Object.entries(edit.set).map(([c, v]) => `${dialect.quoteIdent(c)} = ${params.add(v)}`);
       const where = whereByKey(dialect, spec, edit.key, params);
-      return { sql: `UPDATE ${target} SET ${sets.join(', ')} WHERE ${where}${limitOne(dialect, spec)}`, params: params.values, expectOneRow: true };
+      return { sql: `UPDATE ${prefix}${target} SET ${sets.join(', ')} WHERE ${where}${suffix}`, params: params.values, expectOneRow: true };
     }
     const where = whereByKey(dialect, spec, edit.key, params);
-    return { sql: `DELETE FROM ${target} WHERE ${where}${limitOne(dialect, spec)}`, params: params.values, expectOneRow: true };
+    return { sql: `DELETE ${prefix}FROM ${target} WHERE ${where}${suffix}`, params: params.values, expectOneRow: true };
   });
 }
 
@@ -83,5 +88,5 @@ export function buildStatements(dialect: Dialect, table: TableRef, spec: KeySpec
 export function renderForPreview(stmt: Statement): string {
   let i = 0;
   const lit = (v: CellValue) => (v === null ? 'NULL' : `'${v.replace(/'/g, "''")}'`);
-  return stmt.sql.replace(/\$(\d+)|\?/g, (m, n) => lit(stmt.params[n ? Number(n) - 1 : i++] ?? null)) + ';';
+  return stmt.sql.replace(/\$(\d+)|@p(\d+)|\?/g, (m, n1, n2) => lit(stmt.params[(n1 ?? n2) ? Number(n1 ?? n2) - 1 : i++] ?? null)) + ';';
 }

@@ -76,8 +76,8 @@ const CATEGORY: Record<Category, { badge: string; label: string; help: string }>
 function category(col: GridColumn): Category {
   const t = (col.dataType ?? '').toLowerCase();
   if (!t) return 'other';
-  if (t === 'objectid' || t.includes('uuid')) return 'id';
-  if (/bool|^bit\(1\)$|^tinyint\(1\)$/.test(t)) return 'bool';
+  if (t === 'objectid' || t === 'uniqueidentifier' || t.includes('uuid')) return 'id';
+  if (/bool|^bit(\(1\))?$|^tinyint\(1\)$/.test(t)) return 'bool';
   if (/interval|point/.test(t)) return 'other';
   if (/int|serial|numeric|decimal|real|double|float|money|number|^long$/.test(t)) return 'number';
   if (/date|time|year/.test(t)) return 'date';
@@ -410,10 +410,12 @@ function renderStatus() {
         <i class="sw mod"></i>edited <i class="sw new"></i>new <i class="sw del"></i>to delete
       </span>
       <span class="pending">${plural(pending, 'unsaved change')}</span>
+      <span class="actions">
       <button id="undo" class="icon ghost" title="Undo (${MOD}Z)">${icon('undo')}</button>
       <button id="revert" class="ghost">Discard</button>
       <button id="preview">${S.filter.lang === 'mongo' ? 'Review commands' : 'Review SQL'}</button>
       <button id="save" class="primary">Save <kbd>${MOD}S</kbd></button>
+      </span>
     </div>`;
   $('prev')?.addEventListener('click', () => load(S.offset - S.pageSize));
   $('next')?.addEventListener('click', () => load(S.offset + S.pageSize));
@@ -500,7 +502,8 @@ function renderGrid() {
   for (let r = 0; r < S.rows.length; r++) {
     const row = S.rows[r];
     const label = row.status === 'new' ? '+' : String(++n);
-    html += `<tr data-r="${r}" class="${row.status}"><td class="rownum">${label}</td>`;
+    const alt = row.status !== 'new' && n % 2 === 0 ? ' alt' : '';
+    html += `<tr data-r="${r}" class="${row.status}${alt}"><td class="rownum">${label}</td>`;
     for (let c = 0; c < cols.length; c++) html += cellHtml(row, r, c);
     html += '</tr>';
   }
@@ -547,8 +550,15 @@ function cellHtml(row: Row, r: number, c: number): string {
       cls.push('null');
       content = 'NULL';
     } else {
-      const shown = category(col) === 'bool' ? boolLabel(v) : v;
+      const cat = category(col);
+      const shown = cat === 'bool' ? boolLabel(v) : v;
       content = esc(shown.length > 500 ? shown.slice(0, 500) + '…' : shown);
+      // Colour values by type so columns are easy to tell apart at a glance.
+      cls.push(`v-${cat}`);
+      if (cat === 'bool' && (shown === 'true' || shown === 'false')) cls.push(`v-${shown}`);
+      if (v === '') cls.push('blank');
+      if (col.isPrimaryKey) cls.push('v-pk');
+      if (col.references) cls.push('v-fk');
       if (v.length > 30 || v.includes('\n')) title = esc(v.length > 2000 ? v.slice(0, 2000) + '…' : v);
       if (col.references && row.status !== 'new') content += `<span class="fk-link" title="Open the ${esc(refName(col))} row with ${esc(col.references.column)} = ${esc(v)}">${icon('link')}</span>`;
     }
@@ -973,7 +983,7 @@ function toggleDetails(open = !S.detailsOpen) {
 }
 
 function boolChoices(): [string, string] {
-  if (S.kind === 'mysql' || S.kind === 'sqlite') return ['1', '0'];
+  if (S.kind === 'mysql' || S.kind === 'sqlite' || S.kind === 'mssql') return ['1', '0'];
   return ['true', 'false'];
 }
 
@@ -1234,6 +1244,7 @@ document.addEventListener('paste', (e) => {
 
 function quoteIdent(name: string) {
   const q = S.filter.identQuote ?? '"';
+  if (q === '[') return `[${name.split(']').join(']]')}]`;
   return q + name.split(q).join(q + q) + q;
 }
 
@@ -1285,7 +1296,7 @@ function condition(col: GridColumn, op: Op, v: CellValue): string {
   }
   const c = quoteIdent(col.name);
   const val = v === null ? 'NULL' : cat === 'number' && /^-?\d+(\.\d+)?$/.test(v) ? v : sqlString(v);
-  const text = S.filter.identQuote === '`' ? 'CHAR' : 'TEXT';
+  const text = S.filter.identQuote === '`' ? 'CHAR' : S.filter.identQuote === '[' ? 'NVARCHAR(MAX)' : 'TEXT';
   switch (op) {
     case 'eq':
       return v === null ? `${c} IS NULL` : `${c} = ${val}`;
@@ -1428,6 +1439,9 @@ function showBanner(message: string, hint?: string, detail?: string) {
     ${showDetail ? `<details><summary>Database message</summary><pre>${esc(detail!)}</pre></details>` : ''}</div>
     <button class="icon ghost" title="Dismiss">${icon('close')}</button>`;
   b.querySelector(':scope > button')!.addEventListener('click', hideBanner);
+  b.classList.remove('flash');
+  void b.offsetWidth; // restart the animation
+  b.classList.add('flash');
 }
 
 function hideBanner() {
@@ -1438,6 +1452,7 @@ let toastTimer: number | undefined;
 function toast(text: string) {
   const t = $('toast');
   t.textContent = text;
+  t.style.bottom = `${$('status').offsetHeight + 12}px`; // clear the status bar, however many lines it wraps to
   t.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = window.setTimeout(() => (t.hidden = true), 2600);

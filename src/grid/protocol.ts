@@ -9,7 +9,7 @@ export interface FilterSpec {
   lang: 'sql' | 'mongo';
   label: string;
   placeholder: string;
-  identQuote?: '"' | '`';
+  identQuote?: '"' | '`' | '[';
 }
 
 export interface ResultItem {

@@ -9,7 +9,20 @@
   --mod-bg: color-mix(in srgb, var(--vscode-editorWarning-foreground, #cca700) 22%, transparent);
   --new-bg: color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground, #81b88b) 16%, transparent);
   --del-bg: color-mix(in srgb, var(--vscode-errorForeground, #f14c4c) 14%, transparent);
-  --null: color-mix(in srgb, var(--vscode-foreground) 38%, transparent);
+  --null: var(--vscode-descriptionForeground, color-mix(in srgb, var(--vscode-foreground) 60%, transparent));
+  --zebra: color-mix(in srgb, var(--vscode-foreground) 3.5%, transparent);
+  /* value colours: theme-aware, softened toward the foreground so they stay readable */
+  --v-true: color-mix(in srgb, var(--vscode-charts-green, #89d185) 85%, var(--vscode-foreground));
+  --v-false: color-mix(in srgb, var(--vscode-charts-red, #f14c4c) 75%, var(--vscode-foreground));
+  --v-date: color-mix(in srgb, var(--vscode-charts-orange, #d18616) 80%, var(--vscode-foreground));
+  --v-json: color-mix(in srgb, var(--vscode-charts-yellow, #cca700) 80%, var(--vscode-foreground));
+  --v-id: color-mix(in srgb, var(--vscode-charts-purple, #b180d7) 75%, var(--vscode-foreground));
+  --v-fk: var(--vscode-textLink-foreground);
+}
+/* light themes: orange and yellow need more of the foreground to stay readable on white */
+body.vscode-light {
+  --v-date: color-mix(in srgb, var(--vscode-charts-orange, #d18616) 60%, var(--vscode-foreground));
+  --v-json: color-mix(in srgb, var(--vscode-charts-yellow, #bf8803) 55%, var(--vscode-foreground));
 }
 
 * { box-sizing: border-box; }
@@ -82,8 +95,8 @@ body.loading #progress::after {
 }
 #toolbar:empty { display: none; }
 #toolbar .title { display: flex; align-items: baseline; gap: 8px; min-width: 64px; max-width: 40%; flex: 0 1 auto; overflow: hidden; }
-#toolbar .title b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#toolbar .title .sub { color: var(--muted); font-size: 0.9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#toolbar .title b { flex: 0 1 auto; min-width: 3ch; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#toolbar .title .sub { flex: 1 1 0; min-width: 0; color: var(--muted); font-size: 0.9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #toolbar .divider { width: 1px; height: 18px; background: var(--border); margin: 0 2px; }
 #toolbar code.running {
   color: var(--muted);
@@ -137,6 +150,8 @@ body.loading #progress::after {
   background: var(--vscode-inputValidation-errorBackground);
   border-bottom: 1px solid var(--vscode-inputValidation-errorBorder);
 }
+#banner.flash { animation: banner-flash 0.5s ease-out; }
+@keyframes banner-flash { from { filter: brightness(1.8); } }
 #banner pre { flex: 1; margin: 0; white-space: pre-wrap; font-family: var(--vscode-editor-font-family); font-size: 0.95em; }
 #banner[hidden], #tabs[hidden], #menu[hidden], #modal[hidden], #toast[hidden], #empty[hidden] { display: none; }
 
@@ -220,6 +235,7 @@ body.loading #progress::after {
 #grid thead th.rownum { z-index: 3; cursor: default; }
 
 #grid tbody td { cursor: cell; }
+#grid tbody tr.alt td:not(.rownum) { background-color: var(--zebra); }
 #grid tbody tr:hover td:not(.rownum) { background-color: var(--vscode-list-hoverBackground); }
 #grid tbody tr.row-sel td.rownum { color: var(--vscode-foreground); background: color-mix(in srgb, var(--vscode-focusBorder) 20%, var(--header-bg)); }
 #grid tbody td.num { text-align: right; font-variant-numeric: tabular-nums; }
@@ -304,6 +320,7 @@ textarea.editor {
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
 }
 #menu button {
+  display: flex;
   width: 100%;
   justify-content: space-between;
   gap: 24px;
@@ -313,6 +330,7 @@ textarea.editor {
 }
 #menu button:hover:not(:disabled) { background: var(--vscode-menu-selectionBackground); color: var(--vscode-menu-selectionForeground); }
 #menu kbd { font-family: inherit; opacity: 0.65; }
+#menu kbd:empty { display: none; }
 #menu hr { border: 0; border-top: 1px solid var(--vscode-menu-separatorBackground, var(--border)); margin: 4px 2px; }
 
 /* ── modal ── */
@@ -509,10 +527,10 @@ kbd {
 }
 .t-text { color: var(--vscode-charts-green, #89d185); }
 .t-number { color: var(--vscode-charts-blue, #3794ff); }
-.t-bool { color: var(--vscode-charts-purple, #b180d7); }
+.t-bool { color: var(--vscode-charts-green, #89d185); }
 .t-date { color: var(--vscode-charts-orange, #d18616); }
 .t-json { color: var(--vscode-charts-yellow, #cca700); }
-.t-id { color: var(--vscode-charts-red, #f14c4c); }
+.t-id { color: var(--vscode-charts-purple, #b180d7); }
 .t-binary, .t-other { color: var(--muted); }
 .req { color: var(--req); font-weight: 700; }
 .fk, .pk {
@@ -630,3 +648,22 @@ button.s-readonly { color: var(--vscode-charts-red, #f14c4c); }
 #status { flex-wrap: wrap; row-gap: 2px; }
 #status .left, #status .right { flex-wrap: wrap; }
 #status span { white-space: nowrap; }
+#status .actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+@media (max-width: 640px) {
+  #status .legend { display: none; }
+}
+
+/* ── value colouring by type ── */
+#grid tbody td.v-true { color: var(--v-true); }
+#grid tbody td.v-false { color: var(--v-false); }
+#grid tbody td.v-date { color: var(--v-date); }
+#grid tbody td.v-json { color: var(--v-json); }
+#grid tbody td.v-id { color: var(--v-id); }
+#grid tbody td.v-binary { color: var(--muted); }
+#grid tbody td.v-fk { color: var(--v-fk); }
+#grid tbody td.v-pk { font-weight: 600; }
+#grid tbody td.blank::before { content: 'empty'; color: var(--null); font-style: italic; }
+#grid tbody td.null {
+  font-size: 0.85em;
+  letter-spacing: 0.03em;
+}
