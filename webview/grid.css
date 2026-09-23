@@ -10,6 +10,15 @@
   --new-bg: color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground, #81b88b) 16%, transparent);
   --del-bg: color-mix(in srgb, var(--vscode-errorForeground, #f14c4c) 14%, transparent);
   --null: color-mix(in srgb, var(--vscode-foreground) 38%, transparent);
+  --zebra: color-mix(in srgb, var(--vscode-foreground) 3.5%, transparent);
+  /* value colours: theme-aware, softened toward the foreground so they stay readable */
+  --v-number: var(--vscode-debugTokenExpression-number, var(--vscode-charts-blue, #3794ff));
+  --v-true: color-mix(in srgb, var(--vscode-charts-green, #89d185) 85%, var(--vscode-foreground));
+  --v-false: color-mix(in srgb, var(--vscode-charts-red, #f14c4c) 75%, var(--vscode-foreground));
+  --v-date: color-mix(in srgb, var(--vscode-charts-orange, #d18616) 80%, var(--vscode-foreground));
+  --v-json: color-mix(in srgb, var(--vscode-charts-yellow, #cca700) 80%, var(--vscode-foreground));
+  --v-id: color-mix(in srgb, var(--vscode-charts-purple, #b180d7) 75%, var(--vscode-foreground));
+  --v-fk: var(--vscode-textLink-foreground);
 }
 
 * { box-sizing: border-box; }
@@ -220,6 +229,7 @@ body.loading #progress::after {
 #grid thead th.rownum { z-index: 3; cursor: default; }
 
 #grid tbody td { cursor: cell; }
+#grid tbody tr:nth-child(even) td:not(.rownum) { background-color: var(--zebra); }
 #grid tbody tr:hover td:not(.rownum) { background-color: var(--vscode-list-hoverBackground); }
 #grid tbody tr.row-sel td.rownum { color: var(--vscode-foreground); background: color-mix(in srgb, var(--vscode-focusBorder) 20%, var(--header-bg)); }
 #grid tbody td.num { text-align: right; font-variant-numeric: tabular-nums; }
@@ -512,7 +522,7 @@ kbd {
 .t-bool { color: var(--vscode-charts-purple, #b180d7); }
 .t-date { color: var(--vscode-charts-orange, #d18616); }
 .t-json { color: var(--vscode-charts-yellow, #cca700); }
-.t-id { color: var(--vscode-charts-red, #f14c4c); }
+.t-id { color: var(--vscode-charts-purple, #b180d7); }
 .t-binary, .t-other { color: var(--muted); }
 .req { color: var(--req); font-weight: 700; }
 .fk, .pk {
@@ -630,3 +640,19 @@ button.s-readonly { color: var(--vscode-charts-red, #f14c4c); }
 #status { flex-wrap: wrap; row-gap: 2px; }
 #status .left, #status .right { flex-wrap: wrap; }
 #status span { white-space: nowrap; }
+
+/* ── value colouring by type ── */
+#grid tbody td.v-number { color: var(--v-number); }
+#grid tbody td.v-true { color: var(--v-true); }
+#grid tbody td.v-false { color: var(--v-false); }
+#grid tbody td.v-date { color: var(--v-date); }
+#grid tbody td.v-json { color: var(--v-json); }
+#grid tbody td.v-id { color: var(--v-id); }
+#grid tbody td.v-binary { color: var(--muted); }
+#grid tbody td.v-fk { color: var(--v-fk); }
+#grid tbody td.v-pk { font-weight: 600; }
+#grid tbody td.blank::before { content: 'empty'; color: var(--null); font-style: italic; }
+#grid tbody td.null {
+  font-size: 0.85em;
+  letter-spacing: 0.03em;
+}

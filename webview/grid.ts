@@ -547,8 +547,15 @@ function cellHtml(row: Row, r: number, c: number): string {
       cls.push('null');
       content = 'NULL';
     } else {
-      const shown = category(col) === 'bool' ? boolLabel(v) : v;
+      const cat = category(col);
+      const shown = cat === 'bool' ? boolLabel(v) : v;
       content = esc(shown.length > 500 ? shown.slice(0, 500) + '…' : shown);
+      // Colour values by type so columns are easy to tell apart at a glance.
+      cls.push(`v-${cat}`);
+      if (cat === 'bool') cls.push(shown === 'true' ? 'v-true' : shown === 'false' ? 'v-false' : '');
+      if (v === '') cls.push('blank');
+      if (col.isPrimaryKey) cls.push('v-pk');
+      if (col.references) cls.push('v-fk');
       if (v.length > 30 || v.includes('\n')) title = esc(v.length > 2000 ? v.slice(0, 2000) + '…' : v);
       if (col.references && row.status !== 'new') content += `<span class="fk-link" title="Open the ${esc(refName(col))} row with ${esc(col.references.column)} = ${esc(v)}">${icon('link')}</span>`;
     }
