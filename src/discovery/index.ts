@@ -28,7 +28,7 @@ export async function discoverAll(): Promise<DiscoveryResult> {
       host: '127.0.0.1',
       port: p.port,
       // Mongo: try without credentials first; DockDB asks if the server requires auth.
-      user: p.kind === 'postgres' ? 'postgres' : p.kind === 'mongodb' ? undefined : 'root',
+      user: p.kind === 'postgres' ? 'postgres' : p.kind === 'mongodb' ? undefined : p.kind === 'mssql' ? 'sa' : 'root',
       source: 'scan',
       image: p.version,
     };

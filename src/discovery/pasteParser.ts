@@ -1,7 +1,7 @@
 import { DEFAULT_PORT, DbKind, DetectedDb } from '../model';
 import { credentialsFromEnv, detectKind, parseDockerInspect } from './dockerInspect';
 
-const URL_RE = /\b(?:jdbc:)?(postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?):\/\/[^\s'"`<>]+/gi;
+const URL_RE = /\b(?:jdbc:)?(postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?|sqlserver|mssql):\/\/[^\s'"`<>]+/gi;
 
 /** MongoDB URLs may list several hosts (h1:27017,h2:27017), so URL() cannot parse them. */
 export function parseMongoUrl(raw: string): DetectedDb | undefined {
@@ -45,7 +45,13 @@ export function parseConnectionUrl(raw: string): DetectedDb | undefined {
     return undefined;
   }
   const scheme = url.protocol.replace(':', '').toLowerCase();
-  const kind: DbKind | undefined = scheme.startsWith('postgres') ? 'postgres' : scheme === 'mysql' || scheme === 'mariadb' ? 'mysql' : undefined;
+  const kind: DbKind | undefined = scheme.startsWith('postgres')
+    ? 'postgres'
+    : scheme === 'mysql' || scheme === 'mariadb'
+      ? 'mysql'
+      : scheme === 'sqlserver' || scheme === 'mssql'
+        ? 'mssql'
+        : undefined;
   if (!kind) return undefined;
   const host = url.hostname.replace(/^\[|\]$/g, '') || '127.0.0.1';
   const port = url.port ? Number(url.port) : DEFAULT_PORT[kind];
@@ -101,7 +107,10 @@ export function parseLooseConfig(text: string): DetectedDb | undefined {
   const portRe = /(?:-p\s+|--publish\s+|-\s+|^|\s)["']?(?:(\d+\.\d+\.\d+\.\d+):)?(\d{2,5}):(\d{2,5})(?:\/tcp)?["']?/gm;
   for (const m of text.matchAll(portRe)) mappings.push({ ip: m[1], host: Number(m[2]), container: Number(m[3]) });
 
-  const image = /image:\s*["']?([^\s"']+)/.exec(text)?.[1] ?? /\b((?:[\w.-]+\/)*(?:postgres\w*|postgis\w*|timescale\w*|mysql|mariadb|percona|mongo\w*)[\w./-]*(?::[\w.-]+)?)\b/i.exec(text)?.[1] ?? '';
+  const image =
+    /image:\s*["']?([^\s"']+)/.exec(text)?.[1] ??
+    /\b((?:[\w.-]+\/)*(?:postgres\w*|postgis\w*|timescale\w*|mysql|mariadb|percona|mongo\w*|mssql\w*|azure-sql-edge)[\w./-]*(?::[\w.-]+)?)\b/i.exec(text)?.[1] ??
+    '';
   const kind = detectKind(image, env, mappings.map((m) => m.container), true);
   if (!kind || kind === 'sqlite') return undefined;
 

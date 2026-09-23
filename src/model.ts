@@ -1,16 +1,18 @@
-export type DbKind = 'postgres' | 'mysql' | 'sqlite' | 'mongodb';
+export type DbKind = 'postgres' | 'mysql' | 'sqlite' | 'mongodb' | 'mssql';
 
 export const KIND_LABEL: Record<DbKind, string> = {
   postgres: 'PostgreSQL',
   mysql: 'MySQL / MariaDB',
   sqlite: 'SQLite',
   mongodb: 'MongoDB',
+  mssql: 'Microsoft SQL Server',
 };
 
 export const DEFAULT_PORT: Record<Exclude<DbKind, 'sqlite'>, number> = {
   postgres: 5432,
   mysql: 3306,
   mongodb: 27017,
+  mssql: 1433,
 };
 
 export type ConnectionSource = 'docker' | 'scan' | 'file' | 'manual' | 'url';

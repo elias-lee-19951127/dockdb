@@ -81,5 +81,29 @@ describe('buildStatements', () => {
   it('quotes identifiers with special characters', () => {
     expect(DIALECTS.postgres.quoteIdent('we"ird')).toBe('"we""ird"');
     expect(DIALECTS.mysql.quoteIdent('we`ird')).toBe('`we``ird`');
+    expect(DIALECTS.mssql.quoteIdent('we]ird')).toBe('[we]]ird]');
+  });
+
+  it('mssql: qualifies with the dbo schema by default, quotes with brackets', () => {
+    const t: TableRef = { database: 'shop', name: 'users', type: 'table' };
+    expect(DIALECTS.mssql.qualified(t)).toBe('[dbo].[users]');
+    expect(DIALECTS.mssql.qualified({ ...t, schema: 'sales' })).toBe('[sales].[users]');
+  });
+
+  it('mssql without a PK → matches every column + TOP (1)', () => {
+    const t: TableRef = { database: 'shop', schema: 'dbo', name: 'logs', type: 'table' };
+    const spec = chooseKeySpec(DIALECTS.mssql, t, [col('a'), col('b')])!;
+    const [del] = buildStatements(DIALECTS.mssql, t, spec, [{ type: 'delete', key: ['1', null] }]);
+    expect(del.sql).toBe('DELETE TOP (1) FROM [dbo].[logs] WHERE (([a] = @p1) OR ([a] IS NULL AND @p1 IS NULL)) AND (([b] = @p2) OR ([b] IS NULL AND @p2 IS NULL))');
+    expect(renderForPreview(del)).toBe(
+      "DELETE TOP (1) FROM [dbo].[logs] WHERE (([a] = '1') OR ([a] IS NULL AND '1' IS NULL)) AND (([b] = NULL) OR ([b] IS NULL AND NULL IS NULL));",
+    );
+    const [upd] = buildStatements(DIALECTS.mssql, t, spec, [{ type: 'update', key: ['1', '2'], set: { a: 'z' } }]);
+    expect(upd.sql).toBe('UPDATE TOP (1) [dbo].[logs] SET [a] = @p1 WHERE (([a] = @p2) OR ([a] IS NULL AND @p2 IS NULL)) AND (([b] = @p3) OR ([b] IS NULL AND @p3 IS NULL))');
+  });
+
+  it('mssql: OFFSET/FETCH paging synthesizes an ORDER BY when none is given', () => {
+    expect(DIALECTS.mssql.paginate('SELECT * FROM [t]', false, 50, 100)).toBe('SELECT * FROM [t] ORDER BY (SELECT NULL) OFFSET 100 ROWS FETCH NEXT 50 ROWS ONLY');
+    expect(DIALECTS.mssql.paginate('SELECT * FROM [t] ORDER BY [id] ASC', true, 50, 100)).toBe('SELECT * FROM [t] ORDER BY [id] ASC OFFSET 100 ROWS FETCH NEXT 50 ROWS ONLY');
   });
 });

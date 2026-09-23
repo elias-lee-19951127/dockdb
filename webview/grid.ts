@@ -76,8 +76,8 @@ const CATEGORY: Record<Category, { badge: string; label: string; help: string }>
 function category(col: GridColumn): Category {
   const t = (col.dataType ?? '').toLowerCase();
   if (!t) return 'other';
-  if (t === 'objectid' || t.includes('uuid')) return 'id';
-  if (/bool|^bit\(1\)$|^tinyint\(1\)$/.test(t)) return 'bool';
+  if (t === 'objectid' || t === 'uniqueidentifier' || t.includes('uuid')) return 'id';
+  if (/bool|^bit(\(1\))?$|^tinyint\(1\)$/.test(t)) return 'bool';
   if (/interval|point/.test(t)) return 'other';
   if (/int|serial|numeric|decimal|real|double|float|money|number|^long$/.test(t)) return 'number';
   if (/date|time|year/.test(t)) return 'date';
@@ -973,7 +973,7 @@ function toggleDetails(open = !S.detailsOpen) {
 }
 
 function boolChoices(): [string, string] {
-  if (S.kind === 'mysql' || S.kind === 'sqlite') return ['1', '0'];
+  if (S.kind === 'mysql' || S.kind === 'sqlite' || S.kind === 'mssql') return ['1', '0'];
   return ['true', 'false'];
 }
 
@@ -1234,6 +1234,7 @@ document.addEventListener('paste', (e) => {
 
 function quoteIdent(name: string) {
   const q = S.filter.identQuote ?? '"';
+  if (q === '[') return `[${name.split(']').join(']]')}]`;
   return q + name.split(q).join(q + q) + q;
 }
 
@@ -1285,7 +1286,7 @@ function condition(col: GridColumn, op: Op, v: CellValue): string {
   }
   const c = quoteIdent(col.name);
   const val = v === null ? 'NULL' : cat === 'number' && /^-?\d+(\.\d+)?$/.test(v) ? v : sqlString(v);
-  const text = S.filter.identQuote === '`' ? 'CHAR' : 'TEXT';
+  const text = S.filter.identQuote === '`' ? 'CHAR' : S.filter.identQuote === '[' ? 'NVARCHAR(MAX)' : 'TEXT';
   switch (op) {
     case 'eq':
       return v === null ? `${c} IS NULL` : `${c} = ${val}`;

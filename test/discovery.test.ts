@@ -48,6 +48,15 @@ describe('parseDockerInspect', () => {
     expect(db).toMatchObject({ kind: 'mysql', user: 'root', password: '' });
   });
 
+  it('mssql: reads the sa password from the official image env', () => {
+    const [db] = parseDockerInspect({
+      Name: '/sqlserver',
+      Config: { Image: 'mcr.microsoft.com/mssql/server:2022-latest', Env: ['ACCEPT_EULA=Y', 'MSSQL_SA_PASSWORD=Str0ngPassw0rd!'] },
+      NetworkSettings: { Ports: { '1433/tcp': [{ HostIp: '0.0.0.0', HostPort: '1433' }] } },
+    });
+    expect(db).toMatchObject({ kind: 'mssql', port: 1433, user: 'sa', password: 'Str0ngPassw0rd!' });
+  });
+
   it('detects by port for unknown images and notes an unpublished port', () => {
     const [db] = parseDockerInspect({
       Name: '/custom',
@@ -90,6 +99,16 @@ describe('parseConnectionUrl', () => {
   });
   it('jdbc mysql with the default port', () => {
     expect(parseConnectionUrl('jdbc:mysql://localhost/shop')).toMatchObject({ kind: 'mysql', port: 3306, database: 'shop' });
+  });
+  it('sqlserver URL with the default port', () => {
+    expect(parseConnectionUrl('sqlserver://sa:p%40ss@localhost/app')).toMatchObject({
+      kind: 'mssql',
+      host: 'localhost',
+      port: 1433,
+      user: 'sa',
+      password: 'p@ss',
+      database: 'app',
+    });
   });
   it('sqlite', () => {
     expect(parseConnectionUrl('sqlite:///tmp/app.db')).toMatchObject({ kind: 'sqlite', file: '/tmp/app.db' });

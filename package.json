@@ -2,7 +2,7 @@
   "name": "dockdb",
   "displayName": "DockDB — Database Explorer for Docker",
   "description": "Auto-detects databases running in Docker or on local ports and lets you browse and edit tables like DataGrip. Almost zero configuration.",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "publisher": "phule",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -27,6 +27,8 @@
     "mariadb",
     "sqlite",
     "mongodb",
+    "mssql",
+    "sql server",
     "sql",
     "datagrip",
     "table editor",
@@ -385,11 +387,13 @@
   },
   "dependencies": {
     "mongodb": "^6.21.0",
+    "mssql": "^12.7.2",
     "mysql2": "^3.24.4",
     "pg": "^8.23.0",
     "sql.js": "^1.14.2"
   },
   "devDependencies": {
+    "@types/mssql": "^12.3.0",
     "@types/node": "^20.14.0",
     "@types/pg": "^8.11.0",
     "@types/sql.js": "^1.4.9",

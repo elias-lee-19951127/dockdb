@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0
+
+- Microsoft SQL Server support (`mssql`/tedious): auto-detected from the official Docker image and Azure SQL Edge, or add one manually. Browse databases/schemas/tables/views, edit rows, foreign-key navigation and a SQL query editor, on par with Postgres/MySQL.
+- Port scanning now also probes for SQL Server (TDS PRELOGIN) on top of Postgres/MySQL/MongoDB.
+- Paste a `sqlserver://` URL to add a connection (semicolon-style JDBC/ADO.NET connection strings are not parsed yet — add those manually).
+
 ## 0.1.1
 
 - Removed the repository link from the Marketplace listing (the source repository is private).

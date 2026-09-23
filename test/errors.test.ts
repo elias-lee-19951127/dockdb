@@ -28,4 +28,15 @@ describe('explainError', () => {
   it('unknown errors pass through', () => {
     expect(explainError(new Error('boom'))).toEqual({ message: 'boom' });
   });
+
+  it('mssql: error numbers map the same way as the other dialects', () => {
+    expect(explainError({ code: 'EREQUEST', number: 2627, message: "Violation of PRIMARY KEY constraint 'PK_users'. Cannot insert duplicate key." }).message).toMatch(/Duplicate value/);
+    expect(explainError({ code: 'EREQUEST', number: 515, message: "Cannot insert the value NULL into column 'name', table 'shop.dbo.users'; column does not allow nulls." }).message).toBe(
+      '"name" is required and cannot be empty (NULL).',
+    );
+    expect(explainError({ code: 'EREQUEST', number: 547, message: 'The DELETE statement conflicted with the REFERENCE constraint "FK_orders_users".' }).message).toMatch(/cannot be deleted/);
+    expect(explainError({ code: 'EREQUEST', number: 547, message: 'The INSERT statement conflicted with the CHECK constraint "CK_users_age".' }).message).toMatch(/CHECK constraint/);
+    expect(explainError({ code: 'EREQUEST', number: 207, message: "Invalid column name 'nme'." }).message).toBe('There is no column named "nme".');
+    expect(explainError({ code: 'EREQUEST', number: 208, message: "Invalid object name 'dbo.ghost'." }).message).toMatch(/does not exist/);
+  });
 });

@@ -12,8 +12,8 @@ export type Node =
   | { type: 'table'; connId: string; table: DriverTableInfo }
   | { type: 'info'; id: string; label: string; icon: string; command?: vscode.Command; tooltip?: string };
 
-const KIND_SHORT: Record<DbKind, string> = { postgres: 'Postgres', mysql: 'MySQL', sqlite: 'SQLite', mongodb: 'MongoDB' };
-const KIND_COLOR: Record<DbKind, string> = { postgres: 'charts.blue', mysql: 'charts.orange', sqlite: 'charts.purple', mongodb: 'charts.green' };
+const KIND_SHORT: Record<DbKind, string> = { postgres: 'Postgres', mysql: 'MySQL', sqlite: 'SQLite', mongodb: 'MongoDB', mssql: 'SQL Server' };
+const KIND_COLOR: Record<DbKind, string> = { postgres: 'charts.blue', mysql: 'charts.orange', sqlite: 'charts.purple', mongodb: 'charts.green', mssql: 'charts.red' };
 const SOURCE_LABEL = { docker: 'docker', scan: 'port', file: 'file', manual: '', url: '' } as const;
 
 export class Explorer implements vscode.TreeDataProvider<Node> {

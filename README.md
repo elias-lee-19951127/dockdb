@@ -10,6 +10,7 @@ Built for people who work *with* databases but are not database specialists — 
 | --- | --- | --- | --- | --- |
 | PostgreSQL (postgres, postgis, timescale, pgvector, supabase…) | Docker, ports | ✓ | ✓ (tables without a primary key use `ctid`) | SQL |
 | MySQL / MariaDB / Percona | Docker, ports | ✓ | ✓ (tables without a primary key match every column + `LIMIT 1`) | SQL |
+| Microsoft SQL Server (`mssql/server`, Azure SQL Edge) | Docker, ports | ✓ | ✓ (tables without a primary key match every column + `TOP (1)`) | SQL |
 | SQLite | `*.db`, `*.sqlite` files in the workspace | ✓ | ✓ (tables without a primary key use `rowid`) | SQL |
 | MongoDB (mongo, bitnami, percona, Atlas via `mongodb+srv://`) | Docker, ports | ✓ (collections shown as tables) | ✓ (by `_id`, BSON types preserved) | mongo shell syntax |
 
@@ -17,13 +18,13 @@ Built for people who work *with* databases but are not database specialists — 
 
 When the **DockDB** sidebar opens, it scans in parallel:
 
-1. **Docker** — `docker ps` + `docker inspect`, then reads credentials from the env vars that official images use (`POSTGRES_USER/PASSWORD/DB`, `MYSQL_ROOT_PASSWORD`, `MARIADB_*`, `MONGO_INITDB_ROOT_USERNAME/PASSWORD`, bitnami `POSTGRESQL_*`/`MONGODB_*`…). App containers that merely *connect* to a database (a backend with `POSTGRES_HOST`…) and DB admin UIs (mongo-express, adminer…) are not mistaken for databases.
-2. **Local ports** — every listening port is probed: MySQL sends a greeting, Postgres answers an SSLRequest, MongoDB answers `hello`. Databases on unusual ports are found too.
+1. **Docker** — `docker ps` + `docker inspect`, then reads credentials from the env vars that official images use (`POSTGRES_USER/PASSWORD/DB`, `MYSQL_ROOT_PASSWORD`, `MARIADB_*`, `MSSQL_SA_PASSWORD`, `MONGO_INITDB_ROOT_USERNAME/PASSWORD`, bitnami `POSTGRESQL_*`/`MONGODB_*`…). App containers that merely *connect* to a database (a backend with `POSTGRES_HOST`…) and DB admin UIs (mongo-express, adminer…) are not mistaken for databases.
+2. **Local ports** — every listening port is probed: MySQL sends a greeting, Postgres answers an SSLRequest, MongoDB answers `hello`, SQL Server answers a TDS PRELOGIN request. Databases on unusual ports are found too.
 3. **SQLite** — files starting with the `SQLite format 3` header.
 
 Opening a detected database saves it. If the login fails, DockDB asks once and keeps the password in the VS Code keychain (SecretStorage).
 
-Can't be detected? Use **Paste docker inspect / compose / URL** (📋). It accepts `docker inspect` output, a `docker-compose.yml` snippet, a `docker run -e … -p …` command, a `.env` file, or a URL (`postgres://`, `mysql://`, `mongodb://`, `mongodb+srv://`, `jdbc:…`, `sqlite:///path`). If your clipboard already holds one of those, it is pre-filled.
+Can't be detected? Use **Paste docker inspect / compose / URL** (📋). It accepts `docker inspect` output, a `docker-compose.yml` snippet, a `docker run -e … -p …` command, a `.env` file, or a URL (`postgres://`, `mysql://`, `sqlserver://`, `mongodb://`, `mongodb+srv://`, `jdbc:…`, `sqlite:///path`). If your clipboard already holds one of those, it is pre-filled. (SQL Server's semicolon-style JDBC/ADO.NET connection strings aren't parsed yet — add those connections manually.)
 
 ## The grid
 
@@ -147,7 +148,7 @@ src/
   extension.ts            wiring, command registration
   model.ts                shared types
   discovery/              Docker, port and SQLite discovery; parsing pasted text
-  drivers/                postgres (pg), mysql (mysql2), sqlite (sql.js/WASM — no native build), mongodb
+  drivers/                postgres (pg), mysql (mysql2), mssql (mssql/tedious), sqlite (sql.js/WASM — no native build), mongodb
                           sqlTable.ts: grid backend for SQL tables · mongodb.ts: for collections
                           errors.ts: database errors → plain language
   mongo/                  mongo shell parser, statement splitter, BSON ↔ grid cell conversion
@@ -165,7 +166,7 @@ examples/                 sample workspace: shop.db, demo.sql, demo.mongo.js
 
 ## Roadmap
 
-- Redis (key browser), SQL Server.
+- Redis (key browser).
 - Table structure view (indexes, constraints) and "rows that point here" for foreign keys.
 - Autocomplete for table/column names in the query editor.
 - Export a whole table to CSV/JSON; import CSV.
