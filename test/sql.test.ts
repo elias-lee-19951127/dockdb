@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ColumnInfo, TableRef } from '../src/model';
 import { DIALECTS } from '../src/sql/dialect';
+import { mongoFilterExample, sqlFilterExample } from '../src/sql/filterExample';
 import { buildStatements, chooseKeySpec, renderForPreview } from '../src/sql/mutations';
 import { splitStatements, statementAt } from '../src/sql/splitStatements';
 
@@ -105,5 +106,26 @@ describe('buildStatements', () => {
   it('mssql: OFFSET/FETCH paging synthesizes an ORDER BY when none is given', () => {
     expect(DIALECTS.mssql.paginate('SELECT * FROM [t]', false, 50, 100)).toBe('SELECT * FROM [t] ORDER BY (SELECT NULL) OFFSET 100 ROWS FETCH NEXT 50 ROWS ONLY');
     expect(DIALECTS.mssql.paginate('SELECT * FROM [t] ORDER BY [id] ASC', true, 50, 100)).toBe('SELECT * FROM [t] ORDER BY [id] ASC OFFSET 100 ROWS FETCH NEXT 50 ROWS ONLY');
+  });
+});
+
+describe('filter placeholder', () => {
+  it('uses a numeric and a text column of the table', () => {
+    expect(sqlFilterExample([col('id', { dataType: 'int' }), col('active', { dataType: 'tinyint(1)' }), col('email', { dataType: 'varchar(120)' })], '`')).toBe(
+      "e.g. id > 10 AND email LIKE '%a%'  (Enter to apply)",
+    );
+  });
+  it('quotes names that need it, per dialect', () => {
+    expect(sqlFilterExample([col('Unit Price', { dataType: 'numeric(10,2)' })], '"')).toBe('e.g. "Unit Price" > 10  (Enter to apply)');
+    expect(sqlFilterExample([col('Unit Price', { dataType: 'money' })], '[')).toBe('e.g. [Unit Price] > 10  (Enter to apply)');
+  });
+  it('falls back to a generic example', () => {
+    expect(sqlFilterExample([col('data', { dataType: 'bytea' })], '"')).toContain('email LIKE');
+  });
+  it('builds a MongoDB filter from the collection fields', () => {
+    expect(mongoFilterExample([{ name: '_id', dataType: 'objectId' }, { name: 'qty', dataType: 'int' }, { name: 'sku', dataType: 'string' }])).toBe(
+      'e.g. { qty: { $gt: 18 }, sku: /an/i }  (Enter to apply)',
+    );
+    expect(mongoFilterExample([{ name: '_id', dataType: 'objectId' }])).toContain('age');
   });
 });

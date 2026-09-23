@@ -1,4 +1,5 @@
 import { CellValue, ColumnInfo, GridColumn, Sort, TableRef } from '../model';
+import { sqlFilterExample } from '../sql/filterExample';
 import { buildStatements, chooseKeySpec, Edit, KeySpec, keySelectList, renderForPreview } from '../sql/mutations';
 import { SqlDriver, TableAccess, TableMeta, TablePage } from './driver';
 
@@ -21,6 +22,7 @@ export class SqlTableAccess implements TableAccess {
       const fk = fks.find((f) => f.column === c.name);
       return fk ? { ...c, references: { table: fk.ref, column: fk.refColumn } } : c;
     });
+    const quote = this.driver.dialect.kind === 'mysql' ? '`' : this.driver.dialect.kind === 'mssql' ? '[' : '"';
     return {
       columns: grid,
       editable: !!this.keySpec,
@@ -29,8 +31,8 @@ export class SqlTableAccess implements TableAccess {
       filter: {
         lang: 'sql',
         label: 'WHERE',
-        placeholder: "e.g. id > 10 AND email LIKE '%@gmail.com'  (Enter to apply)",
-        identQuote: this.driver.dialect.kind === 'mysql' ? '`' : this.driver.dialect.kind === 'mssql' ? '[' : '"',
+        placeholder: sqlFilterExample(this.columns, quote),
+        identQuote: quote,
       },
     };
   }
