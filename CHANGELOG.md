@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Search tables from the Databases panel (🔍 in its title bar, or ⌘⌥F / Ctrl+Alt+F): the tree filters as you type across every connected database, showing where each match lives. ✕ shows everything again.
+
 ## 0.3.0
 
 - Grid values are coloured by type — booleans (green/red), dates, JSON, UUID/ObjectId and foreign keys — with subtle zebra rows. Empty strings show as *empty*, distinct from `NULL`. All colours come from your theme and meet 4.5:1 contrast in light and dark themes.

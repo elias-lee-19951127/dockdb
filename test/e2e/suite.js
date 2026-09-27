@@ -63,6 +63,26 @@ exports.run = async function run() {
     });
   }
 
+  await check('Sidebar search filters tables across connections', async () => {
+    api.explorer.setFilter('USER');
+    try {
+      const roots = await withTimeout(api.explorer.getChildren(), 30000, 'search roots');
+      const out = [];
+      for (const r of roots.filter((n) => n.type === 'connection' && api.manager.isConnected(n.config.id))) {
+        const kids = await api.explorer.getChildren(r);
+        const bad = kids.filter((k) => k.type !== 'table' || !k.table.name.toLowerCase().includes('user'));
+        if (bad.length) throw new Error(`${r.config.name}: unexpected ${bad.map(label).join(', ')}`);
+        out.push(`${r.config.name}: ${kids.map((k) => api.explorer.getTreeItem(k).description ? `${label(k)} (${api.explorer.getTreeItem(k).description})` : label(k)).join(', ')}`);
+      }
+      const mysql = out.find((o) => o.startsWith('dockdb-test-mysql:'));
+      if (!mysql?.includes('users')) throw new Error(`users not found: ${out.join(' | ')}`);
+      if (out.some((o) => o.includes('logs') || o.includes('posts'))) throw new Error(`non-matching table shown: ${out.join(' | ')}`);
+      return out;
+    } finally {
+      api.explorer.setFilter('');
+    }
+  });
+
   for (const key of ['dockdb-test-mysql/users', 'dockdb-test-mongo/users', 'shop.db/products', 'dockdb-test-mariadb/posts', 'dockdb-test-mongo-rs/items']) {
     await check(`Opens grid ${key} (real webview)`, async () => {
       const node = tableNodes[key];

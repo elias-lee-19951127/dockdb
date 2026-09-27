@@ -27,6 +27,40 @@ export function activate(ctx: vscode.ExtensionContext) {
   const results = new ResultsView(ctx.extensionUri);
   const runner = new QueryRunner(ctx, store, mgr, results);
 
+  // ── tree message: scan problems and the active table search ──
+  let scanNote: string | undefined;
+  let searchNote: string | undefined;
+  const showMessage = () => (treeView.message = [searchNote, scanNote].filter(Boolean).join('\n') || undefined);
+  explorer.onDidFilter(({ filter, matches }) => {
+    searchNote = `🔍 ${matches} table${matches === 1 ? '' : 's'} matching “${filter}” in connected databases — ✕ in the title bar shows all`;
+    showMessage();
+  });
+  const setSearch = (text: string) => {
+    explorer.setFilter(text);
+    if (!explorer.filterText) searchNote = undefined;
+    showMessage();
+    void vscode.commands.executeCommand('setContext', 'dockdb.searching', !!explorer.filterText);
+  };
+  const searchTables = () => {
+    const box = vscode.window.createInputBox();
+    box.title = 'Search tables';
+    box.placeholder = 'Type part of a table or collection name';
+    box.prompt = 'Filters the Databases panel as you type. Enter or Esc keeps the result; clear the text to show everything.';
+    box.value = explorer.filterText;
+    let timer: NodeJS.Timeout | undefined;
+    box.onDidChangeValue((v) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => setSearch(v), 150);
+    });
+    box.onDidAccept(() => box.hide());
+    box.onDidHide(() => {
+      clearTimeout(timer);
+      setSearch(box.value);
+      box.dispose();
+    });
+    box.show();
+  };
+
   // ── auto discovery ──
   let discovering: Promise<void> | undefined;
   const discover = (silent: boolean) =>
@@ -34,7 +68,8 @@ export function activate(ctx: vscode.ExtensionContext) {
       vscode.window.withProgress({ location: { viewId: 'dockdb.explorer' }, title: 'Scanning Docker & ports…' }, async () => {
         const r = await discoverAll();
         await store.setDetected(r.databases);
-        treeView.message = r.dockerError ? `${r.dockerError} — only ports and SQLite files were scanned.` : undefined;
+        scanNote = r.dockerError ? `${r.dockerError} — only ports and SQLite files were scanned.` : undefined;
+        showMessage();
         if (!silent) {
           const n = r.databases.length;
           void vscode.window.setStatusBarMessage(`DockDB: found ${n} database${n === 1 ? '' : 's'}`, 3000);
@@ -98,6 +133,8 @@ export function activate(ctx: vscode.ExtensionContext) {
     cmd('dockdb.import', () => ImportPanel.show(ctx, store, onImported)),
     cmd('dockdb.addConnection', () => addConnection(ctx, store, onImported)),
     cmd('dockdb.refreshTree', () => explorer.refresh()),
+    cmd('dockdb.searchTables', searchTables),
+    cmd('dockdb.clearSearch', () => setSearch('')),
     cmd('dockdb.refreshNode', () => explorer.refresh()),
 
     cmd('dockdb.openTable', (node?: Node) => {

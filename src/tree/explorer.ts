@@ -19,13 +19,33 @@ const SOURCE_LABEL = { docker: 'docker', scan: 'port', file: 'file', manual: '',
 export class Explorer implements vscode.TreeDataProvider<Node> {
   private readonly changed = new vscode.EventEmitter<Node | undefined>();
   readonly onDidChangeTreeData = this.changed.event;
+  /** Lower-cased table search; empty = normal tree. */
+  private filter = '';
+  /** Every table of a connection, loaded once per search session. */
+  private readonly allTables = new Map<string, Promise<DriverTableInfo[]>>();
+  private readonly filtered = new vscode.EventEmitter<{ filter: string; matches: number }>();
+  /** Fires after a search has been applied, with the number of matching tables. */
+  readonly onDidFilter = this.filtered.event;
 
   constructor(private readonly store: ConnectionStore, private readonly manager: ConnectionManager) {
     store.onDidChange(() => this.refresh());
   }
 
   refresh(node?: Node): void {
+    this.allTables.clear();
     this.changed.fire(node);
+  }
+
+  get filterText(): string {
+    return this.filter;
+  }
+
+  setFilter(text: string): void {
+    const next = text.trim().toLowerCase();
+    if (next === this.filter) return;
+    if (!next) this.allTables.clear();
+    this.filter = next;
+    this.changed.fire(undefined);
   }
 
   getTreeItem(node: Node): vscode.TreeItem {
@@ -48,10 +68,15 @@ export class Explorer implements vscode.TreeDataProvider<Node> {
       }
       case 'table': {
         const t = node.table;
-        const item = new vscode.TreeItem(t.name, vscode.TreeItemCollapsibleState.None);
+        const at = this.filter ? t.name.toLowerCase().indexOf(this.filter) : -1;
+        const label: vscode.TreeItemLabel = { label: t.name, highlights: at >= 0 ? [[at, at + this.filter.length]] : undefined };
+        const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.None);
         item.id = `${node.connId}/${t.database}/${t.schema ?? ''}/${t.name}`;
         item.iconPath = new vscode.ThemeIcon(t.type === 'view' ? 'eye' : 'table');
-        item.description = t.estimatedRows !== undefined && t.estimatedRows > 0 ? `~${compact(t.estimatedRows)}` : t.type === 'view' ? 'view' : undefined;
+        const size = t.estimatedRows !== undefined && t.estimatedRows > 0 ? `~${compact(t.estimatedRows)}` : t.type === 'view' ? 'view' : undefined;
+        // Search results are flat under the connection, so say where each table lives.
+        const where = this.filter ? [t.database, t.schema].filter(Boolean).join('.') : '';
+        item.description = [where, size].filter(Boolean).join(' · ') || undefined;
         item.tooltip = `${t.schema ? t.schema + '.' : ''}${t.name}${t.type === 'view' ? ' (view)' : ''}`;
         item.contextValue = 'table';
         item.command = { command: 'dockdb.openTable', title: 'Open table', arguments: [node] };
@@ -70,8 +95,11 @@ export class Explorer implements vscode.TreeDataProvider<Node> {
 
   private connectionItem(c: ConnectionConfig): vscode.TreeItem {
     const saved = this.store.isSaved(c.id);
-    const item = new vscode.TreeItem(c.name, vscode.TreeItemCollapsibleState.Collapsed);
-    item.id = c.id;
+    // While searching, connected connections open up to show their matches. A different id makes
+    // VS Code apply that state instead of the one it remembers for the normal tree.
+    const searching = !!this.filter && this.manager.isConnected(c.id);
+    const item = new vscode.TreeItem(c.name, searching ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed);
+    item.id = searching ? `${c.id}?search` : c.id;
     item.iconPath = new vscode.ThemeIcon(this.manager.isConnected(c.id) ? 'database' : 'circle-large-outline', new vscode.ThemeColor(KIND_COLOR[c.kind]));
     const version = this.manager.versions.get(c.id)?.split(/[\s-]/)[0] ?? c.image;
     const parts = [KIND_SHORT[c.kind] + (version && c.kind !== 'sqlite' ? ` ${version}` : ''), SOURCE_LABEL[c.source], c.note];
@@ -93,12 +121,12 @@ export class Explorer implements vscode.TreeDataProvider<Node> {
   }
 
   async getChildren(node?: Node): Promise<Node[]> {
-    if (!node) return this.store.all().map((config) => ({ type: 'connection', config }));
+    if (!node) return this.filter ? this.searchRoots() : this.store.all().map((config) => ({ type: 'connection', config }));
     const wasConnected = node.type === 'connection' && this.manager.isConnected(node.config.id);
     try {
       switch (node.type) {
         case 'connection':
-          return await this.connectionChildren(node.config);
+          return this.filter ? await this.matches(node.config.id) : await this.connectionChildren(node.config);
         case 'database':
           return await this.databaseChildren(node.connId, node.database);
         case 'schema':
@@ -119,6 +147,54 @@ export class Explorer implements vscode.TreeDataProvider<Node> {
         setTimeout(() => this.changed.fire(undefined), 0);
       }
     }
+  }
+
+  /** Connections with matching tables, plus the ones not connected yet (expanding one searches it). */
+  private async searchRoots(): Promise<Node[]> {
+    const filter = this.filter;
+    const roots: Node[] = [];
+    let matches = 0;
+    for (const config of this.store.all()) {
+      if (!this.manager.isConnected(config.id)) {
+        roots.push({ type: 'connection', config });
+        continue;
+      }
+      try {
+        const found = await this.matches(config.id);
+        if (!found.length) continue;
+        matches += found.length;
+      } catch {
+        // keep the connection: expanding it shows the error
+      }
+      roots.push({ type: 'connection', config });
+    }
+    if (filter === this.filter) this.filtered.fire({ filter, matches });
+    return roots;
+  }
+
+  private async matches(connId: string): Promise<Node[]> {
+    const tables = await this.tablesOf(connId);
+    return tables.filter((t) => t.name.toLowerCase().includes(this.filter)).map((table) => ({ type: 'table', connId, table }));
+  }
+
+  /** All tables of a connection across its databases and schemas, loaded once while searching. */
+  private tablesOf(connId: string): Promise<DriverTableInfo[]> {
+    let all = this.allTables.get(connId);
+    if (!all) {
+      all = (async () => {
+        const driver = await this.manager.get(connId);
+        const includeSystem = vscode.workspace.getConfiguration('dockdb').get('showSystemDatabases', false);
+        const out: DriverTableInfo[] = [];
+        for (const database of await driver.listDatabases(includeSystem)) {
+          const schemas = driver.hasSchemas ? await driver.listSchemas(database, includeSystem) : [undefined];
+          for (const schema of schemas) out.push(...(await driver.listTables(database, schema)));
+        }
+        return out;
+      })();
+      all.catch(() => this.allTables.delete(connId)); // retry on the next keystroke
+      this.allTables.set(connId, all);
+    }
+    return all;
   }
 
   private async connectionChildren(c: ConnectionConfig): Promise<Node[]> {
