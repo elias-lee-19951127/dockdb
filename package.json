@@ -2,7 +2,7 @@
   "name": "dockdb",
   "displayName": "DockDB — Database Explorer for Docker",
   "description": "Auto-detects databases running in Docker or on local ports and lets you browse and edit tables like DataGrip. Almost zero configuration.",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "publisher": "phule",
   "license": "MIT",
   "icon": "media/icon.png",
