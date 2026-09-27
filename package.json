@@ -173,6 +173,18 @@
         "category": "DockDB"
       },
       {
+        "command": "dockdb.searchTables",
+        "title": "Search Tables",
+        "category": "DockDB",
+        "icon": "$(search)"
+      },
+      {
+        "command": "dockdb.clearSearch",
+        "title": "Clear Table Search",
+        "category": "DockDB",
+        "icon": "$(close)"
+      },
+      {
         "command": "dockdb.setSafety",
         "title": "Set Safety Mode…",
         "category": "DockDB",
@@ -181,6 +193,16 @@
     ],
     "menus": {
       "view/title": [
+        {
+          "command": "dockdb.searchTables",
+          "when": "view == dockdb.explorer",
+          "group": "navigation@0"
+        },
+        {
+          "command": "dockdb.clearSearch",
+          "when": "view == dockdb.explorer && dockdb.searching",
+          "group": "navigation@0"
+        },
         {
           "command": "dockdb.discover",
           "when": "view == dockdb.explorer",
@@ -303,6 +325,10 @@
         {
           "command": "dockdb.refreshTree",
           "when": "false"
+        },
+        {
+          "command": "dockdb.clearSearch",
+          "when": "dockdb.searching"
         }
       ]
     },
@@ -312,6 +338,12 @@
         "key": "ctrl+enter",
         "mac": "cmd+enter",
         "when": "editorTextFocus && (editorLangId == sql || editorLangId == dockdb-mongo)"
+      },
+      {
+        "command": "dockdb.searchTables",
+        "key": "ctrl+alt+f",
+        "mac": "cmd+alt+f",
+        "when": "focusedView == dockdb.explorer"
       }
     ],
     "configuration": {
