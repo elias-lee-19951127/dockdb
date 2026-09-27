@@ -68,6 +68,11 @@
           "type": "webview",
           "id": "dockdb.results",
           "name": "Results"
+        },
+        {
+          "type": "webview",
+          "id": "dockdb.timeline",
+          "name": "Query Timeline"
         }
       ]
     },
@@ -185,6 +190,18 @@
         "icon": "$(close)"
       },
       {
+        "command": "dockdb.recordQueries",
+        "title": "Record Queries (Query Timeline)",
+        "category": "DockDB",
+        "icon": "$(record)"
+      },
+      {
+        "command": "dockdb.stopRecording",
+        "title": "Stop Recording Queries",
+        "category": "DockDB",
+        "icon": "$(debug-stop)"
+      },
+      {
         "command": "dockdb.setSafety",
         "title": "Set Safety Mode…",
         "category": "DockDB",
@@ -217,6 +234,11 @@
           "command": "dockdb.addConnection",
           "when": "view == dockdb.explorer",
           "group": "navigation@3"
+        },
+        {
+          "command": "dockdb.stopRecording",
+          "when": "view == dockdb.timeline && dockdb.recording",
+          "group": "navigation@1"
         }
       ],
       "view/item/context": [
@@ -284,6 +306,11 @@
           "command": "dockdb.setSafety",
           "when": "view == dockdb.explorer && viewItem =~ /^(connection|detected)$/",
           "group": "3_manage@1"
+        },
+        {
+          "command": "dockdb.recordQueries",
+          "when": "view == dockdb.explorer && viewItem =~ /^(connection|detected)$/",
+          "group": "1_query@3"
         }
       ],
       "editor/title": [
@@ -329,6 +356,10 @@
         {
           "command": "dockdb.clearSearch",
           "when": "dockdb.searching"
+        },
+        {
+          "command": "dockdb.stopRecording",
+          "when": "dockdb.recording"
         }
       ]
     },

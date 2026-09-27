@@ -111,6 +111,17 @@ Supported: `find` (+ `sort/limit/skip/project/count/explain`), `findOne`, `aggre
 
 In the grid, each top-level field is a column (fields that first appear on later pages are added). Edits keep the field's BSON type — an `int` stays an `int`. Replica sets / Atlas save in a transaction; standalone servers (no transactions) are checked for missing rows before anything is written.
 
+## Query Timeline — see the SQL your app runs (Postgres)
+
+Using an ORM and not sure what it sends to the database? Right-click a Postgres connection that runs in Docker → **Record Queries**, or open **DockDB → Query Timeline** in the bottom panel and press **● Record queries**. Then use your app.
+
+- Every query appears as it runs, with its parameters, duration and the tables it touches — grouped by user action (queries less than 300 ms apart), newest first. ORM SQL is shown simplified (`SELECT id, total FROM orders WHERE user_id = $1`).
+- The slowest query of each action is flagged, and the same query repeated 5+ times in one action is marked **N+1**.
+- **Explain** says in plain words where the time goes ("Reads every row of orders to find the ones matching user_id = 7 — 97% of the time") and suggests an index when one would help. Reads are run inside a read-only transaction that is rolled back; statements that write are only planned, never run.
+- Open the statement in the query editor (parameters filled in) or any of its tables in the grid.
+
+How it works: DockDB turns on statement logging with `ALTER SYSTEM` + `pg_reload_conf()` — no restart — and reads the container's logs. It asks first, only works on connections in **Dev** mode, needs a superuser (the default `postgres` user in Docker is one), and puts your previous settings back when you stop, disconnect or close VS Code (or offers to on the next start if VS Code was killed). DockDB's own queries are left out.
+
 ## Settings (all optional)
 
 | Key | Default | Meaning |
@@ -156,10 +167,11 @@ src/
   safety.ts               safety modes, write-statement detection
   store/                  saved connections (globalState + SecretStorage), open drivers
   tree/                   sidebar
+  timeline/               query timeline: Postgres log parsing, grouping/N+1, EXPLAIN summaries, recorder, view
   grid/                   table panel + results view (extension side)
   query/                  binds query files to connections, ⌘Enter, CodeLens
   import/                 paste docker inspect / URL panel
-webview/                  grid UI (plain TypeScript, no framework) + CSS using VS Code theme colors
+webview/                  grid and timeline UIs (plain TypeScript, no framework) + CSS using VS Code theme colors
 test/                     vitest; test/e2e: integration tests running inside VS Code
 examples/                 sample workspace: shop.db, demo.sql, demo.mongo.js
 ```

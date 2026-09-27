@@ -231,6 +231,63 @@ exports.run = async function run() {
     return 'ok';
   });
 
+  await check('Query timeline records an app\'s queries and restores settings (Postgres)', async () => {
+    const c = conns.find((x) => x.name === 'dockdb-test-postgres');
+    if (!c) return 'skipped (dockdb-test-postgres not running)';
+    const rec = api.recorder;
+    const got = [];
+    const sub = rec.onQueries((qs) => got.push(...qs));
+    const setting = async () => (await (await api.manager.get(c.id)).query('shop', `SELECT setting || '/' || source FROM pg_settings WHERE name = 'log_min_duration_statement'`)).rows[0][0];
+    const before = await setting();
+    await rec.start(c.id, { confirmed: true });
+    const out = [`before: ${before}`, `recording: ${await setting()}`];
+    try {
+      await vscode.commands.executeCommand('dockdb.timeline.focus');
+      await waitTrace(api, (t) => t === 'timeline:recv:ready', 15000, 'timeline webview ready');
+      const { Client } = require('pg');
+      const app = new Client({ host: c.host, port: c.port, user: c.user, password: await api.store.getPassword(c.id), database: 'shop', application_name: 'e2e-app' });
+      await app.connect();
+      await app.query('SELECT sku, price FROM items WHERE stock > $1 AND sku LIKE $2', [50, 'SKU-1%']);
+      for (let id = 1; id <= 5; id++) await app.query('SELECT * FROM items WHERE id = $1', [id]);
+      await app.end();
+      const end = Date.now() + 15000;
+      while (got.filter((q) => q.app === 'e2e-app').length < 6 && Date.now() < end) await sleep(200);
+      const mine = got.filter((q) => q.app === 'e2e-app');
+      if (mine.length < 6) throw new Error(`recorded ${mine.length}/6 app queries; all: ${got.map((q) => q.app + ':' + q.sql.slice(0, 40)).join(' | ')}`);
+      if (got.some((q) => q.app === 'DockDB')) throw new Error('DockDB\'s own queries were recorded');
+      const first = mine[0];
+      if (JSON.stringify(first.params) !== '["50","SKU-1%"]' || first.tables.join() !== 'items') throw new Error(`params/tables: ${JSON.stringify(first)}`);
+      const repeats = mine.filter((q) => q.sql === 'SELECT * FROM items WHERE id = $1').length;
+      out.push(`${mine.length} queries from e2e-app, params ${JSON.stringify(first.params)}, repeated ×${repeats}, ${Math.max(...mine.map((q) => q.at)) - Math.min(...mine.map((q) => q.at))} ms apart`);
+      const read = await rec.explain(first.id, true);
+      if (read[0]['Execution Time'] === undefined) throw new Error('read query was not analyzed');
+      out.push(`explain read → ${read[0].Plan['Node Type']} (analyzed ${read[0]['Execution Time']} ms)`);
+    } finally {
+      sub.dispose();
+      await rec.stop();
+    }
+    const after = await setting();
+    out.push(`after stop: ${after}`);
+    if (after !== before) throw new Error(`settings not restored: ${before} → ${after}`);
+    const errs = api.trace.filter((t) => t.includes('client-error'));
+    if (errs.length) throw new Error(errs.join(' | '));
+    return out;
+  });
+
+  await check('Timeline explain never runs statements that write', async () => {
+    const c = conns.find((x) => x.name === 'dockdb-test-postgres');
+    if (!c) return 'skipped';
+    const d = await api.manager.get(c.id);
+    const count = async () => (await d.query('shop', 'SELECT count(*) FROM items WHERE stock = -1')).rows[0][0];
+    const before = await count();
+    const planned = await d.explain('shop', 'UPDATE items SET stock = -1 WHERE id = $1', ['1'], false);
+    const analyzed = await d.explain('shop', 'UPDATE items SET stock = -1 WHERE id = $1', ['1'], true).then(() => 'RAN', (e) => e.message);
+    const after = await count();
+    if (before !== after) throw new Error(`data changed: ${before} → ${after}`);
+    if (analyzed === 'RAN') throw new Error('ANALYZE of an UPDATE was allowed');
+    return [`planned: ${planned[0].Plan['Node Type']}`, `analyze refused: ${analyzed}`, `rows with stock=-1: ${before} → ${after}`];
+  });
+
   await check('No JavaScript errors in webviews', async () => {
     const errs = api.trace.filter((t) => t.includes('client-error'));
     if (errs.length) throw new Error(errs.join(' | '));

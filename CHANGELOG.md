@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Query Timeline** (Postgres in Docker): record the SQL your app runs, grouped by user action, with parameters, durations and tables; the slowest and repeated (N+1) queries are flagged, and Explain says in plain words why a query is slow and suggests an index. Logging is switched on without a restart and your settings are put back afterwards.
 - Search tables from the Databases panel (🔍 in its title bar, or ⌘⌥F / Ctrl+Alt+F): the tree filters as you type across every connected database, showing where each match lives. ✕ shows everything again.
 
 ## 0.3.0
