@@ -11,9 +11,12 @@ import { QueryRunner } from './query/queryRunner';
 import { SqlDriver } from './drivers';
 import { askCredentials, ConnectionManager } from './store/connectionManager';
 import { ConnectionStore } from './store/connectionStore';
+import { QueryRecorder } from './timeline/recorder';
+import { TimelineView } from './timeline/timelineView';
 import { connIdOf, Explorer, Node } from './tree/explorer';
 
 let manager: ConnectionManager | undefined;
+let recorder: QueryRecorder | undefined;
 
 export function activate(ctx: vscode.ExtensionContext) {
   const store = new ConnectionStore(ctx);
@@ -58,6 +61,27 @@ export function activate(ctx: vscode.ExtensionContext) {
 
   const openQuery = (req: { connId: string; database: string; sql: string }) => runner.newQuery(req.connId, req.database, req.sql);
 
+  // ── query timeline ──
+  recorder = new QueryRecorder(ctx, store, mgr);
+  const rec = recorder;
+  const timeline = new TimelineView(ctx.extensionUri, rec, {
+    openQuery: (connId, database, sql) => runner.newQuery(connId, database, sql),
+    openTable: async (connId, database, name) => {
+      const config = store.get(connId);
+      const driver = await mgr.get(connId);
+      if (!config) return;
+      const schemas = driver.hasSchemas ? await driver.listSchemas(database, false) : [undefined];
+      for (const schema of schemas) {
+        const table = (await driver.listTables(database, schema)).find((t) => t.name === name);
+        if (table) return TablePanel.show(ctx, mgr, config, table, openQuery);
+      }
+      void vscode.window.showInformationMessage(`DockDB: table "${name}" was not found in ${database}`);
+    },
+  });
+  rec.onState((s) => void vscode.commands.executeCommand('setContext', 'dockdb.recording', !!s.recording));
+  store.onDidChange(() => timeline.postState());
+  void rec.recover();
+
   const onImported = (dbs: DetectedDb[]) => {
     if (!dbs.length) return;
     void vscode.commands.executeCommand('dockdb.explorer.focus');
@@ -93,6 +117,15 @@ export function activate(ctx: vscode.ExtensionContext) {
   ctx.subscriptions.push(
     treeView,
     vscode.window.registerWebviewViewProvider(ResultsView.id, results, { webviewOptions: { retainContextWhenHidden: true } }),
+    vscode.window.registerWebviewViewProvider(TimelineView.id, timeline, { webviewOptions: { retainContextWhenHidden: true } }),
+    rec,
+    cmd('dockdb.recordQueries', async (node?: Node) => {
+      const connId = await pickConnId(node);
+      if (!connId) return;
+      await timeline.reveal();
+      if (await rec.start(connId)) void vscode.window.setStatusBarMessage('DockDB: recording queries — use your app', 4000);
+    }),
+    cmd('dockdb.stopRecording', () => rec.stop()),
 
     cmd('dockdb.discover', () => discover(false)),
     cmd('dockdb.import', () => ImportPanel.show(ctx, store, onImported)),
@@ -201,7 +234,7 @@ export function activate(ctx: vscode.ExtensionContext) {
   );
 
   // Used by the integration tests (test/e2e).
-  return { store, explorer, manager: mgr, runner, trace, explainError };
+  return { store, explorer, manager: mgr, runner, trace, explainError, recorder: rec };
 }
 
 /** TreeView needs an object with methods — keep `this` bound when extracting them. */
@@ -266,5 +299,7 @@ async function addConnection(ctx: vscode.ExtensionContext, store: ConnectionStor
 }
 
 export async function deactivate(): Promise<void> {
+  // Put the server's logging settings back before the connections go away.
+  await recorder?.stop().catch(() => undefined);
   await manager?.disposeAll();
 }

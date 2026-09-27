@@ -181,6 +181,27 @@ export class PostgresDriver implements SqlDriver {
     }
   }
 
+  /**
+   * EXPLAIN (FORMAT JSON) of a statement. `analyze` runs it for real timings — always inside a
+   * READ ONLY transaction that is rolled back, so the server refuses anything that writes.
+   * Without values for its $n parameters, falls back to GENERIC_PLAN (Postgres 16+).
+   */
+  async explain(database: string, sql: string, params: CellValue[], analyze: boolean): Promise<unknown> {
+    const client = await this.pool(database).connect().catch((e) => this.wrap(e));
+    const generic = !params.length && /\$\d/.test(sql);
+    const options = analyze && !generic ? 'ANALYZE, BUFFERS, FORMAT JSON' : generic ? 'GENERIC_PLAN, FORMAT JSON' : 'FORMAT JSON';
+    try {
+      await client.query('BEGIN TRANSACTION READ ONLY');
+      await client.query(`SET LOCAL statement_timeout = '15s'`);
+      const r = await client.query({ text: `EXPLAIN (${options}) ${sql}`, values: generic ? [] : params });
+      const plan = r.rows[0]?.['QUERY PLAN'];
+      return typeof plan === 'string' ? JSON.parse(plan) : plan;
+    } finally {
+      await client.query('ROLLBACK').catch(() => undefined);
+      client.release();
+    }
+  }
+
   openTable(table: TableRef): TableAccess {
     return new SqlTableAccess(this, table);
   }

@@ -32,7 +32,7 @@ const extension = {
 };
 
 const webview = {
-  entryPoints: ['webview/grid.ts', 'webview/import.ts'],
+  entryPoints: ['webview/grid.ts', 'webview/import.ts', 'webview/timeline.ts'],
   bundle: true,
   platform: 'browser',
   format: 'iife',
@@ -47,6 +47,7 @@ function copyAssets() {
   fs.mkdirSync('dist/webview', { recursive: true });
   fs.copyFileSync('node_modules/sql.js/dist/sql-wasm.wasm', 'dist/sql-wasm.wasm');
   fs.copyFileSync('webview/grid.css', 'dist/webview/grid.css');
+  fs.copyFileSync('webview/timeline.css', 'dist/webview/timeline.css');
 }
 
 copyAssets();
@@ -54,6 +55,7 @@ if (watch) {
   const contexts = await Promise.all([esbuild.context(extension), esbuild.context(webview)]);
   await Promise.all(contexts.map((c) => c.watch()));
   fs.watch('webview/grid.css', copyAssets);
+  fs.watch('webview/timeline.css', copyAssets);
 } else {
   await Promise.all([esbuild.build(extension), esbuild.build(webview)]);
 }
