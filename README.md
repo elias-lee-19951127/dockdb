@@ -4,6 +4,8 @@ Browse and edit databases inside VS Code with almost zero setup. Open the sideba
 
 Built for people who work *with* databases but are not database specialists — every column tells you what it holds, errors come back in plain language, and nothing is written until you press Save.
 
+![DockDB: databases found in Docker in the sidebar, a table open in an editable grid](docs/images/hero.png)
+
 ## Supported databases
 
 | Database | Auto-detected from | Browse / search / filter | Edit / add / delete rows | Query editor |
@@ -25,6 +27,8 @@ When the **DockDB** sidebar opens, it scans in parallel:
 Opening a detected database saves it. If the login fails, DockDB asks once and keeps the password in the VS Code keychain (SecretStorage).
 
 Can't be detected? Use **Paste docker inspect / compose / URL** (📋). It accepts `docker inspect` output, a `docker-compose.yml` snippet, a `docker run -e … -p …` command, a `.env` file, or a URL (`postgres://`, `mysql://`, `sqlserver://`, `mongodb://`, `mongodb+srv://`, `jdbc:…`, `sqlite:///path`). If your clipboard already holds one of those, it is pre-filled. (SQL Server's semicolon-style JDBC/ADO.NET connection strings aren't parsed yet — add those connections manually.)
+
+![Pasting a docker-compose snippet into the import panel](docs/images/import.png)
 
 ## The grid
 
@@ -48,6 +52,8 @@ Hover a header for a plain-language explanation. `NULL` (grey, italic) means *no
 - A column's **▾** menu (or right-click the header): sort, *equals…*, *contains…*, *greater/less than…*, *is empty*, *is not empty*.
 - Want the real thing? **Filter** opens a bar that accepts a SQL `WHERE` condition, or a MongoDB filter like `{ age: { $gt: 18 } }`. Filters built from the menus show up there too, so you can learn the syntax as you go.
 
+![Searching, filtering by a cell value and by a column condition](docs/images/filter.gif)
+
 ### Editing
 
 | Action | How |
@@ -63,7 +69,11 @@ Hover a header for a plain-language explanation. `NULL` (grey, italic) means *no
 | Copy as CSV / JSON | Right-click |
 | Resize a column | Drag the header edge |
 
+![Editing a cell, adding a row, reviewing the SQL and saving](docs/images/edit.gif)
+
 **Details** (toolbar) shows the selected row as a form: true/false toggles, a **Now** button for dates, **Format JSON** for JSON columns, and a link to open the row a foreign key points to. Handy for wide tables. The **?** button explains all of this inside the grid.
+
+![The Details form: true/false toggle, Now button for dates, JSON editor](docs/images/details.png)
 
 ### Saving safely
 
@@ -72,6 +82,8 @@ Hover a header for a plain-language explanation. `NULL` (grey, italic) means *no
 - Deleting always shows the statements that will run and asks for confirmation. **Review SQL** shows them at any time.
 - Every `UPDATE`/`DELETE` must hit exactly one row; if someone changed the data meanwhile, everything is rolled back.
 - Database errors are translated: *“Duplicate value in "email": a@x — another row already has it”* instead of `23505 duplicate key value violates unique constraint`. The original message is one click away.
+
+![A duplicate email explained in plain language before anything is written](docs/images/errors.png)
 
 ## Safety modes
 
@@ -85,6 +97,8 @@ Each connection has a safety mode — shown in the sidebar, the grid toolbar and
 
 The modes are named by how careful DockDB should be, not by environment name: a *shared* dev database may well deserve Protected, and a local copy of production can be Dev. Confirmations are deliberately *not* added to Dev — a dialog you see on every save is a dialog you learn to click through.
 
+![A Protected connection showing the statements and asking Confirm & save](docs/images/safety.png)
+
 What counts as a write: in SQL, anything other than `SELECT`/`SHOW`/`EXPLAIN`/`WITH`… — including data-changing CTEs, `SELECT … INTO`, `EXPLAIN ANALYZE DELETE` and `PRAGMA x = y`. In MongoDB, anything other than `find`, `aggregate` (without `$out`/`$merge`), counts, `distinct`, index listing and read-only `runCommand`s.
 
 ## Query editor
@@ -93,6 +107,8 @@ What counts as a write: in SQL, anything other than `SELECT`/`SHOW`/`EXPLAIN`/`W
 - `⌘Enter` runs the statement under the cursor, or the whole selection (one result tab per statement).
 - **▶ Run** CodeLens above each statement; the first line shows which connection the file uses — click to change it.
 - Results appear in the **DockDB → Results** panel at the bottom; sortable and copyable.
+
+![A query file bound to shop.db with Run CodeLens and one result tab per statement](docs/images/query.png)
 
 ### MongoDB
 
@@ -119,6 +135,8 @@ Using an ORM and not sure what it sends to the database? Right-click a Postgres 
 - The slowest query of each action is flagged, and the same query repeated 5+ times in one action is marked **N+1**.
 - **Explain** says in plain words where the time goes ("Reads every row of orders to find the ones matching user_id = 7 — 97% of the time") and suggests an index when one would help. Reads are run inside a read-only transaction that is rolled back; statements that write are only planned, never run.
 - Open the statement in the query editor (parameters filled in) or any of its tables in the grid.
+
+![Query Timeline: queries grouped by action, an N+1 flagged, Explain suggesting an index](docs/images/timeline.gif)
 
 How it works: DockDB turns on statement logging with `ALTER SYSTEM` + `pg_reload_conf()` — no restart — and reads the container's logs. It asks first, only works on connections in **Dev** mode, needs a superuser (the default `postgres` user in Docker is one), and puts your previous settings back when you stop, disconnect or close VS Code (or offers to on the next start if VS Code was killed). DockDB's own queries are left out.
 
@@ -151,6 +169,8 @@ npm run test:e2e   # opens a real VS Code, loads the extension, opens grids and 
                    # (needs Docker with the test databases running)
 npm run package    # build a .vsix
 ```
+
+The README images in `docs/images/` are generated: `npm run build && npm run media` renders the real grid, results, timeline and import webviews in Chromium (Playwright) against a demo SQLite database (`scripts/readme-media/`), with VS Code drawn around them. Needs Playwright with Chromium and `ffmpeg`.
 
 ### Layout
 

@@ -5,6 +5,14 @@
   "version": "0.4.0",
   "publisher": "phule",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/elias-lee-19951127/dockdb.git"
+  },
+  "bugs": {
+    "url": "https://github.com/elias-lee-19951127/dockdb/issues"
+  },
+  "homepage": "https://github.com/elias-lee-19951127/dockdb#readme",
   "icon": "media/icon.png",
   "preview": true,
   "galleryBanner": {
@@ -445,6 +453,7 @@
     "test": "vitest run",
     "vscode:prepublish": "npm run clean && node esbuild.mjs --production",
     "test:e2e": "npm run build && node test/e2e/run.mjs",
+    "media": "node scripts/readme-media/capture.mjs",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "publish:vsce": "vsce publish --no-dependencies --allow-missing-repository"
   },
@@ -461,6 +470,7 @@
     "@types/pg": "^8.11.0",
     "@types/sql.js": "^1.4.9",
     "@types/vscode": "^1.90.0",
+    "@vscode/codicons": "^0.0.36",
     "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.2.0",
     "esbuild": "^0.28.2",
