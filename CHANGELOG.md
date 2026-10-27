@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.0
+
+- The README now shows each feature with a screenshot or animation: auto-detected databases and the grid, importing a connection, filtering, editing and saving, the Details form, plain-language errors, safety modes, the query editor and the Query Timeline.
+- The source is now public: the Marketplace listing links to the GitHub repository and its issue tracker again.
+
 ## 0.4.0
 
 - **Query Timeline** (Postgres in Docker): record the SQL your app runs, grouped by user action, with parameters, durations and tables; the slowest and repeated (N+1) queries are flagged, and Explain says in plain words why a query is slow and suggests an index. Logging is switched on without a restart and your settings are put back afterwards.

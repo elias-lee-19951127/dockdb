@@ -172,6 +172,10 @@ npm run package    # build a .vsix
 
 The README images in `docs/images/` are generated: `npm run build && npm run media` renders the real grid, results, timeline and import webviews in Chromium (Playwright) against a demo SQLite database (`scripts/readme-media/`), with VS Code drawn around them. Needs Playwright with Chromium and `ffmpeg`.
 
+### Releasing
+
+Bump `version` in `package.json`, add a `CHANGELOG.md` entry, then push a tag: `git tag v0.5.0 && git push origin v0.5.0`. The **Publish** workflow (`.github/workflows/publish.yml`) runs the checks, publishes to the VS Code Marketplace (repository secret `VSCE_PAT`) and Open VSX (`OVSX_PAT`, optional), and attaches the `.vsix` to a GitHub release.
+
 ### Layout
 
 ```
